@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    name TEXT NOT NULL,
+    email CITEXT UNIQUE NOT NULL,
+    password_hash BYTEA NOT NULL,
+    account_balance DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+    activated bool NOT NULL DEFAULT FALSE,
+    version INTEGER NOT NULL DEFAULT 1
+);

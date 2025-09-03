@@ -31,7 +31,7 @@ func New(host string, port int, username, password, sender string) *Mailer {
 	}
 }
 
-func (mailer *Mailer) Send(recipient, templateFile string, data any) error {
+func (mailer *Mailer) Send(recipient, templateFile string, data map[string]any) error {
 	tmpl, err := template.New("email").ParseFS(templateFS, "templates/"+templateFile)
 	if err != nil {
 		return err
@@ -60,8 +60,8 @@ func (mailer *Mailer) Send(recipient, templateFile string, data any) error {
 
 	// create email message and set headers and bodies
 	msg := mail.NewMessage()
-	msg.SetHeader("TO", recipient)
-	msg.SetHeader("FROM", mailer.sender)
+	msg.SetHeader("To", recipient)
+	msg.SetHeader("From", mailer.sender)
 	msg.SetHeader("Subject", subject.String())
 	msg.SetBody("text/plain", plainBody.String())
 	msg.AddAlternative("text/html", htmlBody.String())

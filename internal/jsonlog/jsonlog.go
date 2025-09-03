@@ -55,11 +55,11 @@ func (logger *Logger) PrintInfo(message string, properties map[string]string) {
 }
 
 func (logger *Logger) PrintError(err error, properties map[string]string) {
-	logger.print(LevelInfo, err.Error(), properties)
+	logger.print(LevelError, err.Error(), properties)
 }
 
 func (logger *Logger) PrintFatal(err error, properties map[string]string) {
-	logger.print(LevelInfo, err.Error(), properties)
+	logger.print(LevelFatal, err.Error(), properties)
 	// stop the program incase of fatal error
 	os.Exit(1)
 }

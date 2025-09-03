@@ -22,6 +22,8 @@ func (app *Application) ErrorResponse(w http.ResponseWriter, statusCode int, mes
 
 // ServerError is for errors that aren't caused by the client
 func (app *Application) ServerError(w http.ResponseWriter, r *http.Request, err error) {
+	app.LogError(err)
+
 	message := "the server encountered and error and could not resolve your request"
 
 	app.ErrorResponse(w, http.StatusInternalServerError, message)

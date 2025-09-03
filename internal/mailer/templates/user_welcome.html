@@ -1,0 +1,36 @@
+{{define "subject"}}Hi {{.userName}}, {{end}}
+{{define "plainBody"}}
+Thanks for signing up for Bank Account. We're are excited to have you on board.
+
+For future references, your user ID number is {{.userID}}
+
+Please send a PUT request to `/v1/users/activation` with the following JSON body to activate your account
+{"token": "{{.token}}"}
+
+Please note that this is a one-time token that will expire in 3 days
+
+Thanks,
+-Bank Team
+{{end}}
+
+{{define "htmlBody"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html"; charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+        <p>Hi, {{.userName}},</p>
+        <p>Thanks for signing up for Bank Account. We're excited to have you on board</p>
+        <p>For future references, your user ID number is {{.userID}}</p>
+        <p>Please send a PUT request to `/v1/users/activation` with the following JSON body to activate your account</p>
+        <pre><code>
+            {"token": "{{.token}}"}
+        </code></pre>
+        <p>Please note that this is a one-time token that will expire in 3 days</p>
+        <p>Thanks,</p>
+        <p>-Bank Team</p>
+</body>
+</html>
+{{end}}
