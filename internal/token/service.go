@@ -47,3 +47,12 @@ func (s *Service) New(userID int64, timeToLive time.Duration, scope string) (*To
 	err = s.Repository.Insert(token)
 	return token, err
 }
+
+func (s *Service) AuthorizationToken(userID int64) (*Token, error) {
+	token, err := s.New(userID, 24*time.Hour, ScopeAuthorization)
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}

@@ -33,16 +33,17 @@ func (r *Repository) Insert(token *Token) error {
 	return r.DB.QueryRowContext(ctx, query, args...).Scan(&token.ID, &token.CreatedAt)
 }
 
-func (r *Repository) DeleteAllForUser(userID int64) error {
+func (r *Repository) DeleteAllForUser(userID int64, scope string) error {
 	query := `
 		DELETE FROM tokens
 		WHERE user_id = $1
+		AND scope = $2
 	`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err := r.DB.ExecContext(ctx, query, userID)
+	_, err := r.DB.ExecContext(ctx, query, userID, scope)
 	if err != nil {
 		return err
 	}

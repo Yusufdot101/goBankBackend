@@ -81,6 +81,12 @@ func (app *Application) ActivateUser(w http.ResponseWriter, r *http.Request) {
 		Repo: &user.Repository{DB: app.DB},
 	}
 
+	v := validator.New()
+	if token.ValidateToken(v, input.TokenPlaintext); !v.IsValid() {
+		app.FailedValidationResponse(w, v.Errors)
+		return
+	}
+
 	u, err := s.Activate(input.TokenPlaintext)
 	if err != nil {
 		switch {

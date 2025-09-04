@@ -1,1 +1,174 @@
 package app
+
+import (
+	"fmt"
+	"net"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/Yusufdot101/goBankBackend/internal/mailer"
+	"github.com/Yusufdot101/goBankBackend/internal/token"
+	"github.com/Yusufdot101/goBankBackend/internal/user"
+	"github.com/Yusufdot101/goBankBackend/internal/validator"
+	"golang.org/x/time/rate"
+)
+
+func (app *Application) recoverPanic(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		// this function will always be run, in case of panics or otherwise
+		defer func() {
+			// check if panic occured
+
+			if err := recover(); err != nil {
+				// recover() returns any type so we normalize it to error type with fmt.Errorf
+				app.ServerError(w, r, fmt.Errorf("%s", err))
+			}
+		}()
+		// call the next handler in the chain
+		next.ServeHTTP(w, r)
+	}
+
+	return http.HandlerFunc(fn)
+}
+
+func (app *Application) rateLimit(next http.Handler) http.Handler {
+	// client will hold client info used in rate limiting so that each IP has its own limit
+	type client struct {
+		limiter  *rate.Limiter
+		lastSeen time.Time
+	}
+
+	var (
+		clients = make(map[string]*client)
+		mu      sync.Mutex
+	)
+
+	// do cleanup every minute so that we dont waste resources on IPs that dont vist
+	go func() {
+		for {
+			// after every minute, delete clients that didin't visit in the last 3 mins
+			time.Sleep(1 * time.Minute)
+			mu.Lock()
+			for ip, client := range clients {
+				if time.Since(client.lastSeen) > 3*time.Minute {
+					delete(clients, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		if !app.Config.Limiter.Enabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			app.ServerError(w, r, err)
+			return
+		}
+
+		if _, ok := clients[ip]; !ok {
+			mu.Lock()
+			clients[ip] = &client{
+				limiter: rate.NewLimiter(
+					rate.Limit(app.Config.Limiter.RequestsPerSecond), app.Config.Limiter.Burst,
+				),
+			}
+			mu.Unlock()
+		}
+
+		// update the lastSeen
+		clients[ip].lastSeen = time.Now()
+
+		// if not permitted; rate limit exceeded, send appropriate message and info
+		if !clients[ip].limiter.Allow() {
+			app.RateLimitExceededResponse(w)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+
+	return http.HandlerFunc(fn)
+}
+
+func (app *Application) authenticate(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		authorizationHeader := r.Header.Get("Authorization")
+		if authorizationHeader == "" {
+			r = app.setUserContext(r, user.AnonymousUser)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// we expect the Authorization header to be in the format, "Bearer <token>", so we split
+		// the it into two parts
+		headParts := strings.Split(authorizationHeader, " ")
+		if len(headParts) != 2 || headParts[0] != "Bearer" {
+			app.InvalidAuthorizationTokenRespones(w)
+			return
+		}
+
+		authorizationToken := headParts[1]
+		v := validator.New()
+		if token.ValidateToken(v, authorizationToken); !v.IsValid() {
+			app.InvalidAuthorizationTokenRespones(w)
+			return
+		}
+
+		s := user.Service{
+			Mailer: mailer.New(
+				app.Config.SMTP.Host,
+				app.Config.SMTP.Port,
+				app.Config.SMTP.Username,
+				app.Config.SMTP.Password,
+				app.Config.SMTP.Sender,
+			),
+			Repo: &user.Repository{DB: app.DB},
+		}
+		// try to get the user for the provided token
+		u, err := s.Repo.GetForToken(authorizationToken, token.ScopeAuthorization)
+		if err != nil {
+			app.InvalidAuthorizationTokenRespones(w)
+			return
+		}
+
+		r = app.setUserContext(r, u)
+		next.ServeHTTP(w, r)
+	}
+
+	return http.HandlerFunc(fn)
+}
+
+func (app *Application) requireActivatedUser(next http.HandlerFunc) http.HandlerFunc {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		u := app.getUserContext(r)
+		if !u.Activated {
+			app.RequireActivatedUserResponse(w)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+
+	return app.requireAuthorizedUser(fn)
+}
+
+func (app *Application) requireAuthorizedUser(next http.HandlerFunc) http.HandlerFunc {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		u := app.getUserContext(r)
+		if u.IsAnonymous() {
+			app.RequireAuthorizedUserResponse(w)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+
+	return http.HandlerFunc(fn)
+}

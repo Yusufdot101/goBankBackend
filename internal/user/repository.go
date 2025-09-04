@@ -53,6 +53,7 @@ func (r *Repository) Insert(user *User) error {
 func (r *Repository) GetByEmail(email string) (*User, error) {
 	query := `
 		SELECT id, created_at, name, email, password_hash, account_balance, activated, version
+		FROM users
 		WHERE email = $1
 	`
 
@@ -63,6 +64,7 @@ func (r *Repository) GetByEmail(email string) (*User, error) {
 
 	err := r.DB.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
+		&user.CreatedAt,
 		&user.Name,
 		&user.Email,
 		&user.Password.hash,

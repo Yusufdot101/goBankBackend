@@ -1,0 +1,3 @@
+ALTER TABLE transfers DROP CONSTRAINT IF EXISTS amount_check;
+
+DROP TABLE IF EXISTS transfers;

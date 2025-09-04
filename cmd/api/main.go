@@ -22,6 +22,13 @@ func main() {
 		"PostgreSQL idle connection timout",
 	)
 
+	flag.Float64Var(
+		&config.Limiter.RequestsPerSecond, "limiter-rps", 2,
+		"rate limiter maximum requests per second",
+	)
+	flag.IntVar(&config.Limiter.Burst, "limiter-burst", 4, "rate limiter burst")
+	flag.BoolVar(&config.Limiter.Enabled, "limiter-enabled", true, "enable rate limiter")
+
 	flag.StringVar(&config.SMTP.Host, "smpt-host", "sandbox.smtp.mailtrap.io", "SMPT host")
 	flag.IntVar(&config.SMTP.Port, "smpt-port", 25, "SMPT port")
 	flag.StringVar(&config.SMTP.Username, "smpt-username", "3b009b986e9a42", "SMPT username")

@@ -20,6 +20,11 @@ type Config struct {
 		MaxIdleConns   int
 		IdleConnTimout string
 	}
+	Limiter struct {
+		Enabled           bool
+		RequestsPerSecond float64
+		Burst             int
+	}
 	SMTP struct {
 		Host     string
 		Port     int
