@@ -1,0 +1,5 @@
+ALTER TABLE loans DROP CONSTRAINT IF EXISTS remaining_amount_check;
+
+ALTER TABLE loans DROP CONSTRAINT IF EXISTS amount_check;
+
+DROP TABLE IF EXISTS loans;

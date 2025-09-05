@@ -20,23 +20,23 @@ type Service struct {
 
 func (s *Service) Register(
 	v *validator.Validator, name, email, passwordPlaintext string,
-) (*User, string, error) {
+) (*User, error) {
 	user := &User{
 		Name:  name,
 		Email: email,
 	}
 	err := user.Password.Set(passwordPlaintext)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	if ValidateUser(v, user); !v.IsValid() {
-		return nil, "", nil
+		return nil, nil
 	}
 
 	err = s.Repo.Insert(user)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	// get the activation token and send it to the user
@@ -63,10 +63,10 @@ func (s *Service) Register(
 	}()
 
 	if err != nil {
-		return nil, t.Plaintext, err
+		return nil, err
 	}
 
-	return user, t.Plaintext, err
+	return user, err
 }
 
 func (s *Service) Activate(tokenPlaintext string) (*User, error) {
@@ -83,7 +83,7 @@ func (s *Service) Activate(tokenPlaintext string) (*User, error) {
 
 	u.Activated = true
 
-	err = s.Repo.Update(u)
+	u, err = s.Repo.UpdateTx(u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated)
 	if err != nil {
 		return u, err
 	}
@@ -99,13 +99,20 @@ func (s *Service) Activate(tokenPlaintext string) (*User, error) {
 
 func (s *Service) TransferMoney(fromUser, toUser *User, amount float64) (*User, error) {
 	fromUser.AccountBalance -= amount
-	err := s.Repo.Update(fromUser)
+	fromUser, err := s.Repo.UpdateTx(
+		fromUser.ID, fromUser.Name, fromUser.Email, fromUser.Password.Hash,
+		fromUser.AccountBalance, fromUser.Activated,
+	)
 	if err != nil {
 		return nil, err
 	}
 
+	// update the recipient account
 	toUser.AccountBalance += amount
-	err = s.Repo.Update(toUser)
+	_, err = s.Repo.UpdateTx(
+		toUser.ID, toUser.Name, toUser.Email, toUser.Password.Hash,
+		toUser.AccountBalance, toUser.Activated,
+	)
 	// if no error, return the updated state of the sender account
 	if err == nil {
 		return fromUser, nil
@@ -113,6 +120,9 @@ func (s *Service) TransferMoney(fromUser, toUser *User, amount float64) (*User, 
 
 	// in case of an error transferring the money, try to put the amount taken from the sender back
 	fromUser.AccountBalance += amount
-	err = s.Repo.Update(fromUser)
+	_, err = s.Repo.UpdateTx(
+		fromUser.ID, fromUser.Name, fromUser.Email, fromUser.Password.Hash,
+		fromUser.AccountBalance, fromUser.Activated,
+	)
 	return nil, err
 }

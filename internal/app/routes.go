@@ -24,5 +24,13 @@ func (app *Application) Routes() http.Handler {
 
 	router.HandlerFunc(http.MethodPut, "/v1/transfer", app.requireActivatedUser(app.TransferMoney))
 
+	router.HandlerFunc(http.MethodPut, "/v1/loans/get", app.requireActivatedUser(app.NewLoanRequest))
+
+	router.HandlerFunc(http.MethodPut, "/v1/loans/pay", app.requireActivatedUser(app.PayLoan))
+
+	router.HandlerFunc(
+		http.MethodPut, "/v1/loans/approve", app.requireActivatedUser(app.RespondToRequest),
+	)
+
 	return app.recoverPanic(app.rateLimit(app.authenticate(router)))
 }

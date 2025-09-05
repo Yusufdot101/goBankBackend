@@ -1,6 +1,9 @@
 package validator
 
-import "regexp"
+import (
+	"regexp"
+	"slices"
+)
 
 var EmailRX = regexp.MustCompile(
 	"^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
@@ -34,6 +37,11 @@ func (v *Validator) CheckAddError(condition bool, key, message string) {
 	if !condition {
 		v.AddError(key, message)
 	}
+}
+
+// ValueInList checks if string value is in list
+func ValueInList(value string, list ...string) bool {
+	return slices.Contains(list, value)
 }
 
 // Matches checks if value string matches the regular expresstion

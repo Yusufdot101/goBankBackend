@@ -35,7 +35,7 @@ func (app *Application) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := validator.New()
-	u, token, err := s.Register(v, input.Name, input.Email, input.Password)
+	u, err := s.Register(v, input.Name, input.Email, input.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, user.ErrDuplicateEmail):
@@ -53,7 +53,12 @@ func (app *Application) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = jsonutil.WriteJSON(w, http.StatusCreated, jsonutil.Envelope{"user": u, "token": token})
+	err = jsonutil.WriteJSON(
+		w, http.StatusCreated, jsonutil.Envelope{
+			"message": "account created successfully, please follow the instructions sent to your email to activate your account",
+			"user":    u,
+		},
+	)
 	if err != nil {
 		app.ServerError(w, r, err)
 	}

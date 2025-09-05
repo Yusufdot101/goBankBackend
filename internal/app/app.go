@@ -13,8 +13,9 @@ import (
 const version = "1.0.0"
 
 type Config struct {
-	Port int
-	DB   struct {
+	Port              int
+	DailyInterestRate float64
+	DB                struct {
 		DSN            string
 		MaxOpenConns   int
 		MaxIdleConns   int

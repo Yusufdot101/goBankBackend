@@ -28,7 +28,7 @@ func (user *User) IsAnonymous() bool {
 
 type password struct {
 	plaintext *string
-	hash      []byte
+	Hash      []byte
 }
 
 func (p *password) Set(plaintext string) error {
@@ -38,13 +38,13 @@ func (p *password) Set(plaintext string) error {
 	}
 
 	p.plaintext = &plaintext
-	p.hash = hash
+	p.Hash = hash
 
 	return nil
 }
 
 func (p password) Matches(plaintext string) (bool, error) {
-	err := bcrypt.CompareHashAndPassword(p.hash, []byte(plaintext))
+	err := bcrypt.CompareHashAndPassword(p.Hash, []byte(plaintext))
 	if err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
 			return false, nil
@@ -64,7 +64,7 @@ func ValidateUser(v *validator.Validator, user *User) {
 		ValidatePasswordPlaintext(v, *user.Password.plaintext)
 	}
 
-	if user.Password.hash == nil {
+	if user.Password.Hash == nil {
 		panic("user missing hash")
 	}
 }

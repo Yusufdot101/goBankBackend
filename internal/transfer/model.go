@@ -17,7 +17,7 @@ type Transfer struct {
 
 func ValidateTransfer(v *validator.Validator, transfer *Transfer, fromUser *user.User) {
 	v.CheckAddError(transfer.Amount != 0, "amount", "must be given")
-	v.CheckAddError(transfer.Amount >= 0, "amount", "must be positive")
+	v.CheckAddError(transfer.Amount > 0, "amount", "must be greater than 0")
 	v.CheckAddError(
 		fromUser.AccountBalance >= transfer.Amount, "account balance", "insufficient funds",
 	)

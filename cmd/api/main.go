@@ -13,6 +13,7 @@ func main() {
 
 	// create command line flags to customize the application at runtime
 	flag.IntVar(&config.Port, "addr", 4000, "api server port")
+	flag.Float64Var(&config.DailyInterestRate, "interest-rate", 5, "bank daily interest rate")
 
 	flag.StringVar(&config.DB.DSN, "db-dsn", os.Getenv("GOBANK_BACKEND_DB_DSN"), "PostgreSQL DSN")
 	flag.IntVar(&config.DB.MaxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")

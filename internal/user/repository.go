@@ -29,7 +29,7 @@ func (r *Repository) Insert(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := r.DB.QueryRowContext(ctx, query, user.Name, user.Email, user.Password.hash).Scan(
+	err := r.DB.QueryRowContext(ctx, query, user.Name, user.Email, user.Password.Hash).Scan(
 		&user.ID,
 		&user.CreatedAt,
 		&user.AccountBalance,
@@ -50,6 +50,40 @@ func (r *Repository) Insert(user *User) error {
 	return nil
 }
 
+func (r *Repository) Get(userID int64) (*User, error) {
+	query := `
+		SELECT id, created_at, name, email, password_hash, account_balance, activated, version
+		FROM users
+		WHERE id = $1
+	`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var user User
+
+	err := r.DB.QueryRowContext(ctx, query, userID).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.Name,
+		&user.Email,
+		&user.Password.Hash,
+		&user.AccountBalance,
+		&user.Activated,
+		&user.Version,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrNoRecord
+		default:
+			return nil, err
+		}
+	}
+
+	return &user, nil
+}
+
 func (r *Repository) GetByEmail(email string) (*User, error) {
 	query := `
 		SELECT id, created_at, name, email, password_hash, account_balance, activated, version
@@ -67,7 +101,7 @@ func (r *Repository) GetByEmail(email string) (*User, error) {
 		&user.CreatedAt,
 		&user.Name,
 		&user.Email,
-		&user.Password.hash,
+		&user.Password.Hash,
 		&user.AccountBalance,
 		&user.Activated,
 		&user.Version,
@@ -113,7 +147,7 @@ func (r *Repository) GetForToken(tokenPlaintext, scope string) (*User, error) {
 		&user.CreatedAt,
 		&user.Name,
 		&user.Email,
-		&user.Password.hash,
+		&user.Password.Hash,
 		&user.AccountBalance,
 		&user.Activated,
 		&user.Version,
@@ -130,40 +164,70 @@ func (r *Repository) GetForToken(tokenPlaintext, scope string) (*User, error) {
 	return &user, nil
 }
 
-func (r *Repository) Update(user *User) error {
-	query := `
-		UPDATE users
-		SET name = $1, email = $2, password_hash = $3, account_balance = $4, activated = $5, 
-			version = version + 1
-		WHERE id = $6 AND version = $7
-		RETURNING version
-	`
-
-	args := []any{
-		user.Name,
-		user.Email,
-		user.Password.hash,
-		user.AccountBalance,
-		user.Activated,
-		user.ID,
-		user.Version,
-	}
-
+func (r *Repository) UpdateTx(
+	userID int64, name, email string, passwordHash []byte, account_balance float64, activated bool,
+) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := r.DB.QueryRowContext(ctx, query, args...).Scan(&user.Version)
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	query := `
+		SELECT id, created_at, name, email, password_hash, account_balance, activated, version
+		FROM users
+		WHERE id = $1
+		FOR UPDATE
+	`
+
+	user := &User{}
+	err = tx.QueryRowContext(ctx, query, userID).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.Name,
+		&user.Email,
+		&user.Password.Hash,
+		&user.AccountBalance,
+		&user.Activated,
+		&user.Version,
+	)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: key value duplicate violates unique constraint "users_email_key"`:
-			return ErrDuplicateEmail
 		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
+			return nil, ErrEditConflict
 
 		default:
-			return err
+			return nil, err
 		}
 	}
 
-	return err
+	updateQuery := `
+		UPDATE users
+		set name = $1, email = $2, password_hash = $3, account_balance = $4, activated = $5
+		WHERE id = $6
+		RETURNING activated
+	`
+
+	args := []any{
+		name,
+		email,
+		passwordHash,
+		account_balance,
+		activated,
+		userID,
+	}
+
+	err = tx.QueryRowContext(ctx, updateQuery, args...).Scan(&user.Activated)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
