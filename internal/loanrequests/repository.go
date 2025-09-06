@@ -44,6 +44,7 @@ func (r *Repository) Insert(loanRequest *LoanRequest) error {
 func (r *Repository) Get(loanRequestID, userID int64) (*LoanRequest, error) {
 	query := `
 		SELECT id, created_at, user_id, amount, daily_interest_rate, status
+		FROM loan_requests
 		WHERE id = $1
 		AND user_id = $2
 	`
@@ -115,9 +116,12 @@ func (r *Repository) UpdateTx(loanRequestID, userID int64, newStatus string) (*L
 		SET status = $1
 		WHERE id = $2
 		AND user_id = $3
+		RETURNING status
 	`
 
-	_, err = tx.ExecContext(ctx, updateQuery, newStatus, loanRequest.ID, loanRequest.UserID)
+	err = tx.QueryRowContext(ctx, updateQuery, newStatus, loanRequest.ID, loanRequest.UserID).Scan(
+		&loanRequest.Status,
+	)
 	if err != nil {
 		return nil, err
 	}

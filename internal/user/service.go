@@ -2,7 +2,7 @@ package user
 
 import (
 	"errors"
-	"log"
+	"sync"
 	"time"
 
 	"github.com/Yusufdot101/goBankBackend/internal/token"
@@ -19,7 +19,7 @@ type Service struct {
 }
 
 func (s *Service) Register(
-	v *validator.Validator, name, email, passwordPlaintext string,
+	v *validator.Validator, name, email, passwordPlaintext string, deferredFunc func(), wg *sync.WaitGroup,
 ) (*User, error) {
 	user := &User{
 		Name:  name,
@@ -45,28 +45,28 @@ func (s *Service) Register(
 
 	// send the email with the account activation, is async because we dont want to wait for it as
 	// it might take a long time
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("ERROR: %s", err)
+	func() {
+		wg.Add(1)
+		defer wg.Done()
+		go func() {
+			defer deferredFunc()
+			data := map[string]any{
+				"userID":   user.ID,
+				"userName": user.Name,
+				"token":    t.Plaintext,
+			}
+			err = s.Mailer.Send(user.Email, "user_welcome.html", data)
+			if err != nil {
+				panic(err.Error())
 			}
 		}()
-		data := map[string]any{
-			"userID":   user.ID,
-			"userName": user.Name,
-			"token":    t.Plaintext,
-		}
-		err = s.Mailer.Send(user.Email, "user_welcome.html", data)
-		if err != nil {
-			panic(err.Error())
-		}
 	}()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return user, err
+	return user, nil
 }
 
 func (s *Service) Activate(tokenPlaintext string) (*User, error) {

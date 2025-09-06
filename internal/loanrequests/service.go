@@ -36,13 +36,18 @@ func (s *Service) New(
 }
 
 func (s *Service) AcceptLoanRequest(loanRequestID, userID int64) (*LoanRequest, error) {
-	loanRequest, err := s.Repo.UpdateTx(loanRequestID, userID, "ACCEPTED")
+	loanRequest, err := s.Repo.Get(loanRequestID, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	if loanRequest.Status != "PENDING" {
 		return nil, user.ErrNoRecord
+	}
+
+	loanRequest, err = s.Repo.UpdateTx(loanRequestID, userID, "ACCEPTED")
+	if err != nil {
+		return nil, err
 	}
 
 	// update the user account, add the loan to the account balance

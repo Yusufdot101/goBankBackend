@@ -47,7 +47,7 @@ func (app *Application) NewLoanRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (app *Application) RespondToRequest(w http.ResponseWriter, r *http.Request) {
+func (app *Application) RespondToLoanRequest(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		LoanRequestID int64  `json:"loan_request_id"`
 		UserID        int64  `json:"user_id"`

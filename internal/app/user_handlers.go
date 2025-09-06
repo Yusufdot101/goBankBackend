@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/Yusufdot101/goBankBackend/internal/jsonutil"
@@ -34,8 +35,13 @@ func (app *Application) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Repo: &user.Repository{DB: app.DB},
 	}
 
+	deferredFunc := func() {
+		if err := recover(); err != nil {
+			app.ServerError(w, r, fmt.Errorf("%s", err))
+		}
+	}
 	v := validator.New()
-	u, err := s.Register(v, input.Name, input.Email, input.Password)
+	u, err := s.Register(v, input.Name, input.Email, input.Password, deferredFunc, &app.wg)
 	if err != nil {
 		switch {
 		case errors.Is(err, user.ErrDuplicateEmail):

@@ -206,9 +206,10 @@ func (r *Repository) UpdateTx(
 
 	updateQuery := `
 		UPDATE users
-		set name = $1, email = $2, password_hash = $3, account_balance = $4, activated = $5
+		set name = $1, email = $2, password_hash = $3, account_balance = $4, activated = $5, 
+			version = version + 1
 		WHERE id = $6
-		RETURNING activated
+		RETURNING name, email, password_hash, account_balance, activated
 	`
 
 	args := []any{
@@ -220,7 +221,13 @@ func (r *Repository) UpdateTx(
 		userID,
 	}
 
-	err = tx.QueryRowContext(ctx, updateQuery, args...).Scan(&user.Activated)
+	err = tx.QueryRowContext(ctx, updateQuery, args...).Scan(
+		&user.Name,
+		&user.Email,
+		&user.Password.Hash,
+		&user.AccountBalance,
+		&user.Activated,
+	)
 	if err != nil {
 		return nil, err
 	}

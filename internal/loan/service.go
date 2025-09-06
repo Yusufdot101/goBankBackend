@@ -32,12 +32,12 @@ func (s *Service) GetLoan(
 	return nil
 }
 
-func (s *Service) MakePayment(v *validator.Validator, loanID, useID int64, payment float64) (*Loan, error) {
+func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, payment float64) (*Loan, error) {
 	if payment <= 0 {
 		v.AddError("amount", "must be more than 0")
 		return nil, nil
 	}
-	loan, err := s.Repo.GetByID(loanID)
+	loan, err := s.Repo.GetByID(loanID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -47,21 +47,39 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, useID int64, payme
 		return nil, nil
 	}
 
+	// get the user
+	userService := user.Service{
+		Repo: &user.Repository{DB: s.Repo.DB},
+	}
+	u, err := userService.Repo.Get(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if he has enough funds
+	if u.AccountBalance < payment {
+		v.AddError("account_balance", "insufficient funds")
+		return nil, nil
+	}
+
 	// get the time since last payment was made, we use LastUpdatedAt instead of created_at to
 	// avoid charging in partial payments.
 	elapsedTimeDays := time.Since(loan.LastUpdatedAt).Hours() / 24
 	interest := elapsedTimeDays * (loan.RemainingAmount * (loan.DailyInterestRate / 100))
 	totalOwed := loan.RemainingAmount + interest
 
-	loan, err = s.Repo.MakePaymentTx(loan.ID, useID, payment, totalOwed)
+	loan, err = s.Repo.MakePaymentTx(loan.ID, userID, payment, totalOwed)
 	if err != nil {
 		return nil, err
 	}
 
 	loanPayment := Loan{
-		UserID: loan.UserID,
-		Amount: math.Min(payment, totalOwed),
-		Action: "paid",
+		UserID:            loan.UserID,
+		Amount:            math.Min(payment, totalOwed),
+		Action:            "paid",
+		RemainingAmount:   loan.RemainingAmount,
+		DailyInterestRate: loan.DailyInterestRate,
+		LastUpdatedAt:     loan.LastUpdatedAt,
 	}
 
 	err = s.Repo.Insert(&loanPayment)
@@ -69,9 +87,69 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, useID int64, payme
 		return nil, err
 	}
 
-	return loan, nil
+	// deduct the payment from the users account
+	u.AccountBalance -= loanPayment.Amount
+	_, err = userService.Repo.UpdateTx(
+		u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &loanPayment, nil
 }
 
-func (s *Service) AcceptLoanRequest(loanID, UserID int64) error {
-	return nil
+func (s *Service) DeleteLoan(
+	v *validator.Validator, loanID, debtorID, deletedByID int64, reason string,
+) (*LoanDeletion, error) {
+	loanDeletion := &LoanDeletion{Reason: reason}
+	if ValidateLoanDeletion(v, loanDeletion); !v.IsValid() {
+		return nil, nil
+	}
+
+	loan, err := s.Repo.GetByID(loanID, debtorID)
+	if err != nil {
+		return nil, err
+	}
+
+	loanDeletion.LoanCreatedAt = loan.CreatedAt
+	loanDeletion.LoanLastUpdatedAt = loan.LastUpdatedAt
+	loanDeletion.LoanID = loan.ID
+	loanDeletion.DebtorID = loan.UserID
+	loanDeletion.DeletedByID = deletedByID
+	loanDeletion.Amount = loan.Amount
+	loanDeletion.RemainingAmount = loan.RemainingAmount
+	loanDeletion.DailyInterestRate = loan.DailyInterestRate
+	loanDeletion.Reason = reason
+
+	// first record the deletion before deleting the loan because we could get an error before
+	// recording it but removed the loan from the system. if we get an error removing the loan
+	// but the deletion is recorded we could handle it as the loan with the id exists and deal with
+	// it. we retry 5 times to record the entry
+	err = nil // clean the err var before
+	for range 5 {
+		err = s.Repo.InsertDeletion(loanDeletion)
+		if err == nil {
+			break
+		}
+		time.Sleep(100_000_000) // wait for 100ms before retrying. time.Sleep takes in nanoseconds
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// delete the actual loan. we retry 5 times
+	err = nil
+	for range 5 {
+		err = s.Repo.DeleteLoan(loanID, debtorID)
+		if err == nil {
+			break
+		}
+		time.Sleep(100_000_000)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return loanDeletion, nil
 }

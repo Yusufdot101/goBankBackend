@@ -16,7 +16,20 @@ type Loan struct {
 	RemainingAmount   float64
 	LastUpdatedAt     time.Time
 	Version           int32
-	OverPayment       float64 // in case the deposited amount is bigger than the amount owed
+}
+
+type LoanDeletion struct {
+	ID                int64
+	CreatedAt         time.Time
+	LoanCreatedAt     time.Time
+	LoanLastUpdatedAt time.Time
+	LoanID            int64
+	DebtorID          int64
+	DeletedByID       int64
+	Amount            float64
+	DailyInterestRate float64
+	RemainingAmount   float64
+	Reason            string
 }
 
 func ValidateLoan(v *validator.Validator, loan *Loan) {
@@ -28,4 +41,8 @@ func ValidateLoan(v *validator.Validator, loan *Loan) {
 
 	safeActions := []string{"took", "paid"}
 	v.CheckAddError(validator.ValueInList(loan.Action, safeActions...), "action", "invaild")
+}
+
+func ValidateLoanDeletion(v *validator.Validator, loanDeletion *LoanDeletion) {
+	v.CheckAddError(loanDeletion.Reason != "", "reason", "must be given")
 }

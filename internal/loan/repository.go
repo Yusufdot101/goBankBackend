@@ -39,19 +39,19 @@ func (r *Repository) Insert(loan *Loan) error {
 	)
 }
 
-func (r *Repository) GetByID(loanID int64) (*Loan, error) {
+func (r *Repository) GetByID(loanID, userID int64) (*Loan, error) {
 	query := `
 		SELECT id, created_at, user_id, amount, action, daily_interest_rate, remaining_amount, 
 			last_updated_at, version
 		FROM loans
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $2
 	`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var loan Loan
-	err := r.DB.QueryRowContext(ctx, query, loanID).Scan(
+	err := r.DB.QueryRowContext(ctx, query, loanID, userID).Scan(
 		&loan.ID,
 		&loan.CreatedAt,
 		&loan.UserID,
@@ -158,7 +158,6 @@ func (r *Repository) MakePaymentTx(loanID, userID int64, payment, totalOwed floa
 
 	loan.RemainingAmount = math.Max(0, totalOwed-payment)
 	loan.LastUpdatedAt = time.Now().UTC()
-	loan.OverPayment = max(0, payment-totalOwed)
 
 	// update the row in the database
 	updateQuery := `
@@ -209,4 +208,35 @@ func (r *Repository) DeleteLoan(loanID, userID int64) error {
 	}
 
 	return nil
+}
+
+func (r *Repository) InsertDeletion(loanDeletion *LoanDeletion) error {
+	query := `
+		INSERT INTO deleted_loans 
+		(
+			loan_created_at, loan_last_updated_at, loan_id, debtor_id, deleted_by_id, amount, 
+			daily_interest_rate, remaining_amount, reason
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, created_at
+	`
+	args := []any{
+		loanDeletion.LoanCreatedAt,
+		loanDeletion.LoanLastUpdatedAt,
+		loanDeletion.LoanID,
+		loanDeletion.DebtorID,
+		loanDeletion.DeletedByID,
+		loanDeletion.Amount,
+		loanDeletion.DailyInterestRate,
+		loanDeletion.RemainingAmount,
+		loanDeletion.Reason,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return r.DB.QueryRowContext(ctx, query, args...).Scan(
+		&loanDeletion.ID,
+		&loanDeletion.CreatedAt,
+	)
 }

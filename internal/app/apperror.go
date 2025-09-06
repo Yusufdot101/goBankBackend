@@ -84,3 +84,8 @@ func (app *Application) TransferFailedResponse(
 	message := fmt.Sprintf("transfer failed: %s", reason)
 	app.ErrorResponse(w, statusCode, message)
 }
+
+func (app *Application) RequirePermissionResponse(w http.ResponseWriter) {
+	message := "You do not have the necessary permission to access this resource"
+	app.ErrorResponse(w, http.StatusForbidden, message)
+}

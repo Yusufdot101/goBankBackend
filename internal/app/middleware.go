@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Yusufdot101/goBankBackend/internal/mailer"
+	"github.com/Yusufdot101/goBankBackend/internal/permission"
 	"github.com/Yusufdot101/goBankBackend/internal/token"
 	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
@@ -171,4 +172,28 @@ func (app *Application) requireAuthorizedUser(next http.HandlerFunc) http.Handle
 	}
 
 	return http.HandlerFunc(fn)
+}
+
+func (app *Application) requirePermission(next http.HandlerFunc, code ...string) http.HandlerFunc {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		u := app.getUserContext(r)
+		permissionService := permission.Service{
+			Repo: &permission.Repository{DB: app.DB},
+		}
+		userPermissions, err := permissionService.Repo.AllForUser(u.ID)
+		if err != nil {
+			app.ServerError(w, r, err)
+			return
+		}
+
+		if !permission.Includes(userPermissions, code...) {
+			app.RequirePermissionResponse(w)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+
+	// also needs to be authorized and activated
+	return app.requireActivatedUser(fn)
 }
