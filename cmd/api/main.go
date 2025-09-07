@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/Yusufdot101/goBankBackend/internal/app"
 	"github.com/Yusufdot101/goBankBackend/internal/jsonlog"
@@ -23,7 +24,7 @@ func main() {
 	}
 
 	// create command line flags to customize the application at runtime
-	flag.IntVar(&config.Port, "addr", 4000, "API server port")
+	flag.IntVar(&config.Port, "addr", mustPort(os.Getenv("PORT")), "API server port")
 	flag.Float64Var(&config.DailyInterestRate, "interest-rate", 5, "Bank daily interest rate")
 
 	flag.StringVar(&config.DB.DSN, "db-dsn", "", "PostgreSQL DSN")
@@ -68,4 +69,12 @@ func main() {
 	if err != nil {
 		application.Logger.PrintFatal(err, nil)
 	}
+}
+
+func mustPort(port string) int {
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return 4000
+	}
+	return p
 }
