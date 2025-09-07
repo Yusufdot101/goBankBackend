@@ -3,6 +3,8 @@ package mailer
 import (
 	"bytes"
 	"embed"
+	"os"
+	"strconv"
 	"text/template"
 	"time"
 
@@ -18,6 +20,31 @@ var templateFS embed.FS
 type Mailer struct {
 	dialer *mail.Dialer
 	sender string
+}
+
+func NewMailerFromEnv() *Mailer {
+	env := os.Getenv("ENV")
+
+	var host string
+	var port int
+	var username string
+	var pass string
+	sender := os.Getenv("SENDER")
+
+	if env == "PROD" {
+		host = os.Getenv("MAILTRAP_HOST")
+		port, _ = strconv.Atoi(os.Getenv("MAILTRAP_PORT"))
+		username = os.Getenv("MAILTRAP_USERNAME")
+		pass = os.Getenv("MAILTRAP_PASSWORD")
+	} else {
+		// dev: use MailHog
+		host = "localhost"
+		port = 1025
+		username = ""
+		pass = ""
+	}
+
+	return New(host, port, username, pass, sender)
 }
 
 func New(host string, port int, username, password, sender string) *Mailer {

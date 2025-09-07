@@ -47,8 +47,6 @@ func (app *Application) TransferMoney(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, user.ErrNoRecord):
 			app.TransferFailedResponse(w, http.StatusNotFound, "to email not found")
-		case errors.Is(err, user.ErrEditConflict):
-			app.EditConflictResponse(w)
 		default:
 			app.ServerError(w, r, err)
 		}

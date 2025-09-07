@@ -24,7 +24,7 @@ func (app *Application) GetAuthorizationToken(w http.ResponseWriter, r *http.Req
 
 	userService := user.Service{Repo: &user.Repository{DB: app.DB}}
 
-	u, err := userService.Repo.GetByEmail(input.Email)
+	u, err := userService.GetUserByEmail(input.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, user.ErrNoRecord):
@@ -47,7 +47,7 @@ func (app *Application) GetAuthorizationToken(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tokenService := token.Service{Repository: &token.Repository{DB: app.DB}}
+	tokenService := token.Service{Repo: &token.Repository{DB: app.DB}}
 	t, err := tokenService.AuthorizationToken(u.ID)
 	if err != nil {
 		app.ServerError(w, r, err)

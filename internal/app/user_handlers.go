@@ -25,14 +25,8 @@ func (app *Application) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s := user.Service{
-		Mailer: mailer.New(
-			app.Config.SMTP.Host,
-			app.Config.SMTP.Port,
-			app.Config.SMTP.Username,
-			app.Config.SMTP.Password,
-			app.Config.SMTP.Sender,
-		),
-		Repo: &user.Repository{DB: app.DB},
+		Mailer: mailer.NewMailerFromEnv(),
+		Repo:   &user.Repository{DB: app.DB},
 	}
 
 	deferredFunc := func() {

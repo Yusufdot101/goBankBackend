@@ -10,10 +10,10 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const version = "1.0.0"
-
 type Config struct {
+	Version           string
 	Port              int
+	Environment       string
 	DailyInterestRate float64
 	DB                struct {
 		DSN            string

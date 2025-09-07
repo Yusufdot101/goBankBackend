@@ -2,17 +2,16 @@ package app
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/Yusufdot101/goBankBackend/internal/mailer"
 	"github.com/Yusufdot101/goBankBackend/internal/permission"
 	"github.com/Yusufdot101/goBankBackend/internal/token"
 	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
+	"github.com/tomasen/realip"
 	"golang.org/x/time/rate"
 )
 
@@ -35,7 +34,7 @@ func (app *Application) recoverPanic(next http.Handler) http.Handler {
 }
 
 func (app *Application) rateLimit(next http.Handler) http.Handler {
-	// client will hold client info used in rate limiting so that each IP has its own limit
+	// client will hold client info used in rate limiting so that each IP has its own rate limit
 	type client struct {
 		limiter  *rate.Limiter
 		lastSeen time.Time
@@ -49,7 +48,7 @@ func (app *Application) rateLimit(next http.Handler) http.Handler {
 	// do cleanup every minute so that we dont waste resources on IPs that dont vist
 	go func() {
 		for {
-			// after every minute, delete clients that didin't visit in the last 3 mins
+			// after every minute, delete clients that didn't visit in the last 3 mins
 			time.Sleep(1 * time.Minute)
 			mu.Lock()
 			for ip, client := range clients {
@@ -67,12 +66,7 @@ func (app *Application) rateLimit(next http.Handler) http.Handler {
 			return
 		}
 
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			app.ServerError(w, r, err)
-			return
-		}
-
+		ip := realip.FromRequest(r)
 		if _, ok := clients[ip]; !ok {
 			mu.Lock()
 			clients[ip] = &client{
@@ -123,17 +117,10 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 		}
 
 		s := user.Service{
-			Mailer: mailer.New(
-				app.Config.SMTP.Host,
-				app.Config.SMTP.Port,
-				app.Config.SMTP.Username,
-				app.Config.SMTP.Password,
-				app.Config.SMTP.Sender,
-			),
 			Repo: &user.Repository{DB: app.DB},
 		}
 		// try to get the user for the provided token
-		u, err := s.Repo.GetForToken(authorizationToken, token.ScopeAuthorization)
+		u, err := s.GetUserForToken(authorizationToken, token.ScopeAuthorization)
 		if err != nil {
 			app.InvalidAuthorizationTokenRespones(w)
 			return
@@ -180,7 +167,7 @@ func (app *Application) requirePermission(next http.HandlerFunc, code ...string)
 		permissionService := permission.Service{
 			Repo: &permission.Repository{DB: app.DB},
 		}
-		userPermissions, err := permissionService.Repo.AllForUser(u.ID)
+		userPermissions, err := permissionService.UserAllPermissions(u.ID)
 		if err != nil {
 			app.ServerError(w, r, err)
 			return

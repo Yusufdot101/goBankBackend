@@ -44,7 +44,7 @@ func (app *Application) PayLoan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = jsonutil.WriteJSON(w, http.StatusOK, jsonutil.Envelope{
-		"message": "loan payment success",
+		"message": "loan payment completed successfully",
 		"loan":    l,
 	})
 	if err != nil {

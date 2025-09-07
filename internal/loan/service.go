@@ -43,7 +43,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 	}
 
 	if loan.RemainingAmount == 0 {
-		v.AddError("loan", "payment is completed")
+		v.AddError("loan", "is already paid off")
 		return nil, nil
 	}
 
@@ -51,7 +51,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 	userService := user.Service{
 		Repo: &user.Repository{DB: s.Repo.DB},
 	}
-	u, err := userService.Repo.Get(userID)
+	u, err := userService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 	}
 
 	// get the time since last payment was made, we use LastUpdatedAt instead of created_at to
-	// avoid charging in partial payments.
+	// avoid over-charging in partial payments.
 	elapsedTimeDays := time.Since(loan.LastUpdatedAt).Hours() / 24
 	interest := elapsedTimeDays * (loan.RemainingAmount * (loan.DailyInterestRate / 100))
 	totalOwed := loan.RemainingAmount + interest
@@ -89,7 +89,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 
 	// deduct the payment from the users account
 	u.AccountBalance -= loanPayment.Amount
-	_, err = userService.Repo.UpdateTx(
+	_, err = userService.UpdateUser(
 		u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {
@@ -123,7 +123,7 @@ func (s *Service) DeleteLoan(
 	loanDeletion.Reason = reason
 
 	// first record the deletion before deleting the loan because we could get an error before
-	// recording it but removed the loan from the system. if we get an error removing the loan
+	// recording it after removing the loan from the system. if we get an error removing the loan
 	// but the deletion is recorded we could handle it as the loan with the id exists and deal with
 	// it. we retry 5 times to record the entry
 	err = nil // clean the err var before
@@ -132,7 +132,7 @@ func (s *Service) DeleteLoan(
 		if err == nil {
 			break
 		}
-		time.Sleep(100_000_000) // wait for 100ms before retrying. time.Sleep takes in nanoseconds
+		time.Sleep(100 * time.Millisecond) // wait for 100ms before retrying.
 	}
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func (s *Service) DeleteLoan(
 		if err == nil {
 			break
 		}
-		time.Sleep(100_000_000)
+		time.Sleep(100 * time.Millisecond)
 	}
 	if err != nil {
 		return nil, err

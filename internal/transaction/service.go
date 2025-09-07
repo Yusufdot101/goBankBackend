@@ -25,7 +25,7 @@ func (s *Service) Deposit(
 	userService := user.Service{
 		Repo: &user.Repository{DB: s.Repo.DB},
 	}
-	u, err := userService.Repo.Get(userID)
+	u, err := userService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (s *Service) Deposit(
 	}
 
 	u.AccountBalance += transaction.Amount
-	_, err = userService.Repo.UpdateTx(
+	_, err = userService.UpdateUser(
 		u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {
@@ -62,7 +62,7 @@ func (s *Service) Withdraw(
 	userService := user.Service{
 		Repo: &user.Repository{DB: s.Repo.DB},
 	}
-	u, err := userService.Repo.Get(userID)
+	u, err := userService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (s *Service) Withdraw(
 	}
 
 	u.AccountBalance -= transaction.Amount
-	_, err = userService.Repo.UpdateTx(
+	_, err = userService.UpdateUser(
 		u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 	"github.com/Yusufdot101/goBankBackend/internal/jsonutil"
 )
 
-// LogError uses the jsonlog to log the error
+// LogError uses the app's loggger to log the error for debugging
 func (app *Application) LogError(err error) {
 	app.Logger.PrintError(err, nil)
 }
@@ -40,11 +40,6 @@ func (app *Application) MethodNotAllowedResponse(w http.ResponseWriter, r *http.
 
 func (app *Application) BadRequestResponse(w http.ResponseWriter, err error) {
 	app.ErrorResponse(w, http.StatusBadRequest, err.Error())
-}
-
-func (app *Application) EditConflictResponse(w http.ResponseWriter) {
-	message := "an error occured and your edit could not go through, please try again"
-	app.ErrorResponse(w, http.StatusConflict, message)
 }
 
 func (app *Application) FailedValidationResponse(w http.ResponseWriter, err map[string]string) {

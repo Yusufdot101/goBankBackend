@@ -18,6 +18,15 @@ func (s *Service) UserHas(u *user.User, code string) (bool, error) {
 	return Includes(userPermissions, code), nil
 }
 
+func (s *Service) UserAllPermissions(userID int64) ([]Permission, error) {
+	allPermissions, err := s.Repo.AllForUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return allPermissions, nil
+}
+
 func (s *Service) GrantUser(v *validator.Validator, userID int64, code string) error {
 	if ValidateCode(v, code); !v.IsValid() {
 		return nil
@@ -27,7 +36,7 @@ func (s *Service) GrantUser(v *validator.Validator, userID int64, code string) e
 		Repo: &user.Repository{DB: s.Repo.DB},
 	}
 	// verify the user exists
-	u, err := userService.Repo.Get(userID)
+	u, err := userService.GetUser(userID)
 	if err != nil {
 		return err
 	}
@@ -40,7 +49,7 @@ func (s *Service) RevokeFromUser(userID int64, code string) error {
 		Repo: &user.Repository{DB: s.Repo.DB},
 	}
 	// verify the user exists
-	u, err := userService.Repo.Get(userID)
+	u, err := userService.GetUser(userID)
 	if err != nil {
 		return err
 	}

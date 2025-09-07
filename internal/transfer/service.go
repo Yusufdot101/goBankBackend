@@ -15,7 +15,7 @@ func (s *Service) TransferMoney(
 	v *validator.Validator, userService *user.Service, fromUser *user.User, toUserEmail string,
 	amount float64,
 ) (*Transfer, *user.User, error) {
-	toUser, err := userService.Repo.GetByEmail(toUserEmail)
+	toUser, err := userService.GetUserByEmail(toUserEmail)
 	if err != nil {
 		return nil, nil, err
 	}

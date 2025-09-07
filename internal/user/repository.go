@@ -11,7 +11,6 @@ import (
 var (
 	ErrNoRecord       = errors.New("no record")
 	ErrDuplicateEmail = errors.New("duplicate email")
-	ErrEditConflict   = errors.New("edit conflict")
 )
 
 type Repository struct {
@@ -165,7 +164,7 @@ func (r *Repository) GetForToken(tokenPlaintext, scope string) (*User, error) {
 }
 
 func (r *Repository) UpdateTx(
-	userID int64, name, email string, passwordHash []byte, account_balance float64, activated bool,
+	userID int64, name, email string, passwordHash []byte, accountBalance float64, activated bool,
 ) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -195,13 +194,7 @@ func (r *Repository) UpdateTx(
 		&user.Version,
 	)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrEditConflict
-
-		default:
-			return nil, err
-		}
+		return nil, err
 	}
 
 	updateQuery := `
@@ -216,7 +209,7 @@ func (r *Repository) UpdateTx(
 		name,
 		email,
 		passwordHash,
-		account_balance,
+		accountBalance,
 		activated,
 		userID,
 	}

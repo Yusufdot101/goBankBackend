@@ -8,7 +8,7 @@ import (
 )
 
 type Service struct {
-	Repository *Repository
+	Repo *Repository
 }
 
 func generateToken(userID int64, timeToLive time.Duration, scope string) (*Token, error) {
@@ -38,13 +38,17 @@ func generateToken(userID int64, timeToLive time.Duration, scope string) (*Token
 	return &token, nil
 }
 
+func (s *Service) DeleteAllForUser(userID int64, scope string) error {
+	return s.Repo.DeleteAllForUser(userID, scope)
+}
+
 func (s *Service) New(userID int64, timeToLive time.Duration, scope string) (*Token, error) {
 	token, err := generateToken(userID, timeToLive, scope)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.Repository.Insert(token)
+	err = s.Repo.Insert(token)
 	return token, err
 }
 

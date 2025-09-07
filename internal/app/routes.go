@@ -13,7 +13,7 @@ func (app *Application) Routes() http.Handler {
 	router.MethodNotAllowed = http.HandlerFunc(app.MethodNotAllowedResponse)
 
 	// returns application inforamation
-	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.requireActivatedUser(app.Healthcheck))
+	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.Healthcheck)
 
 	router.HandlerFunc(http.MethodPost, "/v1/users", app.CreateUser)
 

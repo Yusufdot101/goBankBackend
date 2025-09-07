@@ -18,6 +18,31 @@ type Service struct {
 	Mailer Mailer
 }
 
+func (s *Service) GetUser(userID int64) (*User, error) {
+	user, err := s.Repo.Get(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *Service) GetUserByEmail(email string) (*User, error) {
+	user, err := s.Repo.GetByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *Service) UpdateUser(
+	userID int64, name, email string, passwordHash []byte, accountBalance float64, activated bool,
+) (*User, error) {
+	user, err := s.Repo.UpdateTx(userID, name, email, passwordHash, accountBalance, activated)
+	return user, err
+}
+
 func (s *Service) Register(
 	v *validator.Validator, name, email, passwordPlaintext string, deferredFunc func(), wg *sync.WaitGroup,
 ) (*User, error) {
@@ -40,7 +65,7 @@ func (s *Service) Register(
 	}
 
 	// get the activation token and send it to the user
-	tokenService := token.Service{Repository: &token.Repository{DB: s.Repo.DB}}
+	tokenService := token.Service{Repo: &token.Repository{DB: s.Repo.DB}}
 	t, err := tokenService.New(user.ID, 3*24*time.Hour, token.ScopeActivation)
 
 	// send the email with the account activation, is async because we dont want to wait for it as
@@ -69,6 +94,15 @@ func (s *Service) Register(
 	return user, nil
 }
 
+func (s *Service) GetUserForToken(tokenPlaintext, scope string) (*User, error) {
+	user, err := s.Repo.GetForToken(tokenPlaintext, scope)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func (s *Service) Activate(tokenPlaintext string) (*User, error) {
 	u, err := s.Repo.GetForToken(tokenPlaintext, token.ScopeActivation)
 	if err != nil {
@@ -88,8 +122,8 @@ func (s *Service) Activate(tokenPlaintext string) (*User, error) {
 		return u, err
 	}
 
-	tokenService := token.Service{Repository: &token.Repository{DB: s.Repo.DB}}
-	err = tokenService.Repository.DeleteAllForUser(u.ID, token.ScopeActivation)
+	tokenService := token.Service{Repo: &token.Repository{DB: s.Repo.DB}}
+	err = tokenService.DeleteAllForUser(u.ID, token.ScopeActivation)
 	if err != nil {
 		return nil, err
 	}

@@ -55,13 +55,13 @@ func (s *Service) AcceptLoanRequest(loanRequestID, userID int64) (*LoanRequest, 
 		Repo: &user.Repository{DB: s.Repo.DB},
 	}
 
-	u, err := userService.Repo.Get(userID)
+	u, err := userService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
 
 	u.AccountBalance += loanRequest.Amount
-	_, err = userService.Repo.UpdateTx(
+	_, err = userService.UpdateUser(
 		userID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {
