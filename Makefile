@@ -1,4 +1,4 @@
-include .envrc
+# include .envrc
 ###################################################################################################
 #	                                        HELPERS	                                              #
 ###################################################################################################
@@ -30,7 +30,7 @@ build/api:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:build/api
-	@./bin/api -db-dsn=${GOBANK_BACKEND_DB_DSN}
+	@./bin/api
 
 ## db/migrations/new: create a new database migration
 .PHONY: db/migrations/new
