@@ -29,16 +29,14 @@ func (app *Application) GrantPermission(w http.ResponseWriter, r *http.Request) 
 	err = permissionService.GrantUser(v, input.UserID, input.Code)
 	if err != nil {
 		switch {
+		case errors.Is(err, validator.ErrFailedValidation):
+			app.FailedValidationResponse(w, v.Errors)
+
 		case errors.Is(err, user.ErrNoRecord):
 			app.NotFoundResponse(w, r)
 		default:
 			app.ServerError(w, r, err)
 		}
-		return
-	}
-
-	if !v.IsValid() {
-		app.FailedValidationResponse(w, v.Errors)
 		return
 	}
 
@@ -72,12 +70,16 @@ func (app *Application) AddNewPermisison(w http.ResponseWriter, r *http.Request)
 
 	v := validator.New()
 	err = permissionService.AddNewPermission(v, input.Code)
-	if err != nil {
-		app.ServerError(w, r, err)
-		return
+	switch {
 	}
-	if !v.IsValid() {
-		app.FailedValidationResponse(w, v.Errors)
+	if err != nil {
+		switch {
+		case errors.Is(err, validator.ErrFailedValidation):
+			app.FailedValidationResponse(w, v.Errors)
+
+		default:
+			app.ServerError(w, r, err)
+		}
 		return
 	}
 

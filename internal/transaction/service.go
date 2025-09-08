@@ -19,7 +19,7 @@ func (s *Service) Deposit(
 		PerformedBy: performedBy,
 	}
 	if ValidateTransaction(v, transaction); !v.IsValid() {
-		return nil, nil
+		return nil, validator.ErrFailedValidation
 	}
 
 	userService := user.Service{
@@ -56,7 +56,7 @@ func (s *Service) Withdraw(
 		PerformedBy: performedBy,
 	}
 	if ValidateTransaction(v, transaction); !v.IsValid() {
-		return nil, nil
+		return nil, validator.ErrFailedValidation
 	}
 
 	userService := user.Service{

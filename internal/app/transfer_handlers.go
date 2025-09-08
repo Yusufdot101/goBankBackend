@@ -45,16 +45,15 @@ func (app *Application) TransferMoney(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		switch {
+		case errors.Is(err, validator.ErrFailedValidation):
+			app.FailedValidationResponse(w, v.Errors)
+
 		case errors.Is(err, user.ErrNoRecord):
 			app.TransferFailedResponse(w, http.StatusNotFound, "to email not found")
+
 		default:
 			app.ServerError(w, r, err)
 		}
-		return
-	}
-
-	if !v.IsValid() {
-		app.FailedValidationResponse(w, v.Errors)
 		return
 	}
 

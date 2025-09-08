@@ -28,7 +28,7 @@ func (s *Service) TransferMoney(
 	}
 
 	if ValidateTransfer(v, &transfer, fromUser); !v.IsValid() {
-		return nil, nil, nil
+		return nil, nil, validator.ErrFailedValidation
 	}
 
 	fromUser, err = userService.TransferMoney(fromUser, toUser, transfer.Amount)

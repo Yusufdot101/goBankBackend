@@ -105,14 +105,14 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 		// the it into two parts
 		headParts := strings.Split(authorizationHeader, " ")
 		if len(headParts) != 2 || headParts[0] != "Bearer" {
-			app.InvalidAuthorizationTokenRespones(w)
+			app.InvalidAuthorizationTokenResponse(w)
 			return
 		}
 
 		authorizationToken := headParts[1]
 		v := validator.New()
 		if token.ValidateToken(v, authorizationToken); !v.IsValid() {
-			app.InvalidAuthorizationTokenRespones(w)
+			app.InvalidAuthorizationTokenResponse(w)
 			return
 		}
 
@@ -122,7 +122,7 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 		// try to get the user for the provided token
 		u, err := s.GetUserForToken(authorizationToken, token.ScopeAuthorization)
 		if err != nil {
-			app.InvalidAuthorizationTokenRespones(w)
+			app.InvalidAuthorizationTokenResponse(w)
 			return
 		}
 

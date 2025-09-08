@@ -24,7 +24,7 @@ func (s *Service) New(
 	}
 
 	if ValidateLoanRequest(v, &loanRequest); !v.IsValid() {
-		return nil, nil
+		return nil, validator.ErrFailedValidation
 	}
 
 	err := s.Repo.Insert(&loanRequest)

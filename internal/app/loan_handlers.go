@@ -30,16 +30,15 @@ func (app *Application) PayLoan(w http.ResponseWriter, r *http.Request) {
 	l, err := loanService.MakePayment(v, input.LoadID, u.ID, input.Amount)
 	if err != nil {
 		switch {
+		case errors.Is(err, validator.ErrFailedValidation):
+			app.FailedValidationResponse(w, v.Errors)
+
 		case errors.Is(err, user.ErrNoRecord):
 			app.NotFoundResponse(w, r)
+
 		default:
 			app.ServerError(w, r, err)
 		}
-		return
-	}
-
-	if !v.IsValid() {
-		app.FailedValidationResponse(w, v.Errors)
 		return
 	}
 
@@ -76,16 +75,15 @@ func (app *Application) DeleteLoan(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		switch {
+		case errors.Is(err, validator.ErrFailedValidation):
+			app.FailedValidationResponse(w, v.Errors)
+
 		case errors.Is(err, user.ErrNoRecord):
 			app.NotFoundResponse(w, r)
+
 		default:
 			app.ServerError(w, r, err)
 		}
-		return
-	}
-
-	if !v.IsValid() {
-		app.FailedValidationResponse(w, v.Errors)
 		return
 	}
 

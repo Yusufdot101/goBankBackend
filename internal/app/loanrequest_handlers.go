@@ -29,12 +29,13 @@ func (app *Application) NewLoanRequest(w http.ResponseWriter, r *http.Request) {
 	u := app.getUserContext(r)
 	loanRequest, err := loanRequestService.New(v, u, input.Amount, app.Config.DailyInterestRate)
 	if err != nil {
-		app.ServerError(w, r, err)
-		return
-	}
+		switch {
+		case errors.Is(err, validator.ErrFailedValidation):
+			app.FailedValidationResponse(w, v.Errors)
 
-	if !v.IsValid() {
-		app.FailedValidationResponse(w, v.Errors)
+		default:
+			app.ServerError(w, r, err)
+		}
 		return
 	}
 

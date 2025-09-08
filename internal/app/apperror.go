@@ -56,7 +56,7 @@ func (app *Application) RateLimitExceededResponse(w http.ResponseWriter) {
 	app.ErrorResponse(w, http.StatusTooManyRequests, message)
 }
 
-func (app *Application) InvalidAuthorizationTokenRespones(w http.ResponseWriter) {
+func (app *Application) InvalidAuthorizationTokenResponse(w http.ResponseWriter) {
 	// to let the user know the format required
 	w.Header().Set("WWW-Authenticate", "Bearer")
 	message := "token invalid or missing"

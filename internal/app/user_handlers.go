@@ -24,20 +24,20 @@ func (app *Application) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s := user.Service{
+	tokenService := token.Service{Repo: &token.Repository{DB: app.DB}}
+	userService := user.Service{
 		Mailer: mailer.NewMailerFromEnv(),
 		Repo:   &user.Repository{DB: app.DB},
+		Token:  &tokenService,
 	}
 
-	deferredFunc := func() {
-		if err := recover(); err != nil {
-			app.ServerError(w, r, fmt.Errorf("%s", err))
-		}
-	}
 	v := validator.New()
-	u, err := s.Register(v, input.Name, input.Email, input.Password, deferredFunc, &app.wg)
+	u, token, err := userService.Register(v, input.Name, input.Email, input.Password)
 	if err != nil {
 		switch {
+		case errors.Is(err, validator.ErrFailedValidation):
+			app.FailedValidationResponse(w, v.Errors)
+
 		case errors.Is(err, user.ErrDuplicateEmail):
 			v.AddError("email", "user with this email already exists")
 			app.FailedValidationResponse(w, v.Errors)
@@ -48,13 +48,25 @@ func (app *Application) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !v.IsValid() {
-		app.FailedValidationResponse(w, v.Errors)
-		return
-	}
+	// send the email to the user the token
+	app.wg.Add(1)
+	go func() {
+		defer app.wg.Done()
+		defer func() {
+			if err := recover(); err != nil {
+				app.ServerError(w, r, fmt.Errorf("%s", err))
+			}
+		}()
+		data := map[string]any{
+			"userName": u.Name,
+			"userID":   u.ID,
+			"token":    token.Plaintext,
+		}
+		_ = userService.Mailer.Send(u.Email, "user_welcome.html", data)
+	}()
 
 	err = jsonutil.WriteJSON(
-		w, http.StatusCreated, jsonutil.Envelope{
+		w, http.StatusAccepted, jsonutil.Envelope{
 			"message": "account created successfully, please follow the instructions sent to your email to activate your account",
 			"user":    u,
 		},

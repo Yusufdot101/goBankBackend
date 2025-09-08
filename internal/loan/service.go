@@ -44,7 +44,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 
 	if loan.RemainingAmount == 0 {
 		v.AddError("loan", "is already paid off")
-		return nil, nil
+		return nil, validator.ErrFailedValidation
 	}
 
 	// get the user
@@ -59,7 +59,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 	// check if he has enough funds
 	if u.AccountBalance < payment {
 		v.AddError("account_balance", "insufficient funds")
-		return nil, nil
+		return nil, validator.ErrFailedValidation
 	}
 
 	// get the time since last payment was made, we use LastUpdatedAt instead of created_at to
@@ -104,7 +104,7 @@ func (s *Service) DeleteLoan(
 ) (*LoanDeletion, error) {
 	loanDeletion := &LoanDeletion{Reason: reason}
 	if ValidateLoanDeletion(v, loanDeletion); !v.IsValid() {
-		return nil, nil
+		return nil, validator.ErrFailedValidation
 	}
 
 	loan, err := s.Repo.GetByID(loanID, debtorID)

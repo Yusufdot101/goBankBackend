@@ -23,7 +23,7 @@ func (app *Application) getUserContext(r *http.Request) *user.User {
 	return user
 }
 
-// store the user, anonymous or otherwise, to the request context, so that there elements have
+// store the user, anonymous or otherwise, to the request context, so that other elements have
 // access to it
 func (app *Application) setUserContext(r *http.Request, u *user.User) *http.Request {
 	ctx := context.WithValue(r.Context(), userContextKey, u)

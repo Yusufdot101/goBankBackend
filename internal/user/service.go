@@ -2,20 +2,36 @@ package user
 
 import (
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/Yusufdot101/goBankBackend/internal/token"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 )
 
+type UserRepo interface {
+	Insert(user *User) error
+	Get(userID int64) (*User, error)
+	GetByEmail(email string) (*User, error)
+	GetForToken(tokenPlaintext, scope string) (*User, error)
+	UpdateTx(
+		userID int64, name, email string, passwordHash []byte,
+		accountBalance float64, activated bool,
+	) (*User, error)
+}
+
 type Mailer interface {
 	Send(to, template string, data map[string]any) error
 }
 
+type TokenService interface {
+	New(userID int64, timeToLive time.Duration, scope string) (*token.Token, error)
+	DeleteAllForUser(userID int64, scope string) error
+}
+
 type Service struct {
-	Repo   *Repository
+	Repo   UserRepo
 	Mailer Mailer
+	Token  TokenService
 }
 
 func (s *Service) GetUser(userID int64) (*User, error) {
@@ -44,54 +60,35 @@ func (s *Service) UpdateUser(
 }
 
 func (s *Service) Register(
-	v *validator.Validator, name, email, passwordPlaintext string, deferredFunc func(), wg *sync.WaitGroup,
-) (*User, error) {
+	v *validator.Validator,
+	name, email, passwordPlaintext string,
+) (*User, *token.Token, error) {
 	user := &User{
 		Name:  name,
 		Email: email,
 	}
+
 	err := user.Password.Set(passwordPlaintext)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if ValidateUser(v, user); !v.IsValid() {
-		return nil, nil
+		return nil, nil, validator.ErrFailedValidation
 	}
 
 	err = s.Repo.Insert(user)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// get the activation token and send it to the user
-	tokenService := token.Service{Repo: &token.Repository{DB: s.Repo.DB}}
-	t, err := tokenService.New(user.ID, 3*24*time.Hour, token.ScopeActivation)
-
-	// send the email with the account activation, is async because we dont want to wait for it as
-	// it might take a long time
-	func() {
-		wg.Add(1)
-		defer wg.Done()
-		go func() {
-			defer deferredFunc()
-			data := map[string]any{
-				"userID":   user.ID,
-				"userName": user.Name,
-				"token":    t.Plaintext,
-			}
-			err = s.Mailer.Send(user.Email, "user_welcome.html", data)
-			if err != nil {
-				panic(err.Error())
-			}
-		}()
-	}()
-
+	t, err := s.Token.New(user.ID, 3*24*time.Hour, token.ScopeActivation)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return user, nil
+	return user, t, nil
 }
 
 func (s *Service) GetUserForToken(tokenPlaintext, scope string) (*User, error) {
@@ -122,8 +119,7 @@ func (s *Service) Activate(tokenPlaintext string) (*User, error) {
 		return u, err
 	}
 
-	tokenService := token.Service{Repo: &token.Repository{DB: s.Repo.DB}}
-	err = tokenService.DeleteAllForUser(u.ID, token.ScopeActivation)
+	err = s.Token.DeleteAllForUser(u.ID, token.ScopeActivation)
 	if err != nil {
 		return nil, err
 	}

@@ -29,7 +29,7 @@ func (s *Service) UserAllPermissions(userID int64) ([]Permission, error) {
 
 func (s *Service) GrantUser(v *validator.Validator, userID int64, code string) error {
 	if ValidateCode(v, code); !v.IsValid() {
-		return nil
+		return validator.ErrFailedValidation
 	}
 
 	userService := user.Service{
@@ -63,7 +63,7 @@ func (s *Service) Delete(code string) error {
 
 func (s *Service) AddNewPermission(v *validator.Validator, code string) error {
 	if v.CheckAddError(code != "", "code", "must be given"); !v.IsValid() {
-		return nil
+		return validator.ErrFailedValidation
 	}
 
 	err := s.Repo.Insert(Permission(code))
