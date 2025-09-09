@@ -127,8 +127,8 @@ func TestRegister(t *testing.T) {
 			tc.setupRepo(repo)
 			tc.setupTokenSvc(tokenSvc)
 			svc := &Service{
-				Repo:  repo,
-				Token: tokenSvc,
+				Repo:         repo,
+				TokenService: tokenSvc,
 			}
 			v := validator.New()
 
@@ -220,8 +220,8 @@ func TestActivate(t *testing.T) {
 			tc.setupTokenSvc(tokenSvc)
 
 			svc := &Service{
-				Repo:  repo,
-				Token: tokenSvc,
+				Repo:         repo,
+				TokenService: tokenSvc,
 			}
 
 			gotUser, gotErr := svc.Activate("token")

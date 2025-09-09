@@ -3,13 +3,32 @@ package loanrequests
 import (
 	"time"
 
-	"github.com/Yusufdot101/goBankBackend/internal/loan"
 	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 )
 
+type Repo interface {
+	Insert(loanRequest *LoanRequest) error
+	Get(loanRequestID, userID int64) (*LoanRequest, error)
+	UpdateTx(loanRequestID, userID int64, newStatus string) (*LoanRequest, error)
+}
+
+type UserService interface {
+	GetUser(userID int64) (*user.User, error)
+	UpdateUser(
+		userID int64, userName, userEmail string, userPasswordHash []byte,
+		userAccountBalance float64, userActivated bool,
+	) (*user.User, error)
+}
+
+type LoanService interface {
+	GetLoan(u *user.User, amount, dailyInterestRate float64) error
+}
+
 type Service struct {
-	Repo *Repository
+	Repo        Repo
+	UserService UserService
+	LoanService LoanService
 }
 
 func (s *Service) New(
@@ -51,17 +70,14 @@ func (s *Service) AcceptLoanRequest(loanRequestID, userID int64) (*LoanRequest, 
 	}
 
 	// update the user account, add the loan to the account balance
-	userService := user.Service{
-		Repo: &user.Repository{DB: s.Repo.DB},
-	}
 
-	u, err := userService.GetUser(userID)
+	u, err := s.UserService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
 
 	u.AccountBalance += loanRequest.Amount
-	_, err = userService.UpdateUser(
+	_, err = s.UserService.UpdateUser(
 		userID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {
@@ -69,11 +85,7 @@ func (s *Service) AcceptLoanRequest(loanRequestID, userID int64) (*LoanRequest, 
 	}
 
 	// record the loan on the loans table
-	loanService := loan.Service{
-		Repo: &loan.Repository{DB: s.Repo.DB},
-	}
-
-	err = loanService.GetLoan(u, loanRequest.Amount, loanRequest.DailyInterestRate)
+	err = s.LoanService.GetLoan(u, loanRequest.Amount, loanRequest.DailyInterestRate)
 	if err != nil {
 		return nil, err
 	}

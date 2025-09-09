@@ -8,8 +8,24 @@ import (
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 )
 
+type Repo interface {
+	Insert(*Loan) error
+	GetByID(loanID, userID int64) (*Loan, error)
+	InsertDeletion(loan *LoanDeletion) error
+	MakePaymentTx(loanID, userID int64, payment, totalOwed float64) (*Loan, error)
+	DeleteLoan(loanID, debtorID int64) error
+}
+
+type UserService interface {
+	GetUser(userID int64) (*user.User, error)
+	UpdateUser(
+		userID int64, userName, userEmail string, userPasswordHash []byte,
+		userAccountBalance float64, userActivated bool) (*user.User, error)
+}
+
 type Service struct {
-	Repo *Repository
+	Repo        Repo
+	UserService UserService
 }
 
 func (s *Service) GetLoan(
@@ -32,10 +48,12 @@ func (s *Service) GetLoan(
 	return nil
 }
 
-func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, payment float64) (*Loan, error) {
+func (s *Service) MakePayment(
+	v *validator.Validator, loanID, userID int64, payment float64,
+) (*Loan, error) {
 	if payment <= 0 {
 		v.AddError("amount", "must be more than 0")
-		return nil, nil
+		return nil, validator.ErrFailedValidation
 	}
 	loan, err := s.Repo.GetByID(loanID, userID)
 	if err != nil {
@@ -48,10 +66,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 	}
 
 	// get the user
-	userService := user.Service{
-		Repo: &user.Repository{DB: s.Repo.DB},
-	}
-	u, err := userService.GetUser(userID)
+	u, err := s.UserService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +104,7 @@ func (s *Service) MakePayment(v *validator.Validator, loanID, userID int64, paym
 
 	// deduct the payment from the users account
 	u.AccountBalance -= loanPayment.Amount
-	_, err = userService.UpdateUser(
+	_, err = s.UserService.UpdateUser(
 		u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {

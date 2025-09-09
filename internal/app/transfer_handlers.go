@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/Yusufdot101/goBankBackend/internal/jsonutil"
-	"github.com/Yusufdot101/goBankBackend/internal/mailer"
 	"github.com/Yusufdot101/goBankBackend/internal/transfer"
 	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
@@ -24,25 +23,17 @@ func (app *Application) TransferMoney(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userService := user.Service{
-		Mailer: mailer.New(
-			app.Config.SMTP.Host,
-			app.Config.SMTP.Port,
-			app.Config.SMTP.Username,
-			app.Config.SMTP.Password,
-			app.Config.SMTP.Sender,
-		),
 		Repo: &user.Repository{DB: app.DB},
 	}
 
 	transferService := transfer.Service{
-		Repo: &transfer.Repository{DB: app.DB},
+		Repo:        &transfer.Repository{DB: app.DB},
+		UserService: &userService,
 	}
 
 	fromUser := app.getUserContext(r)
 	v := validator.New()
-	tr, fromUser, err := transferService.TransferMoney(
-		v, &userService, fromUser, input.ToEmail, input.Amount,
-	)
+	tr, fromUser, err := transferService.TransferMoney(v, fromUser, input.ToEmail, input.Amount)
 	if err != nil {
 		switch {
 		case errors.Is(err, validator.ErrFailedValidation):

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Yusufdot101/goBankBackend/internal/jsonutil"
+	"github.com/Yusufdot101/goBankBackend/internal/loan"
 	"github.com/Yusufdot101/goBankBackend/internal/loanrequests"
 	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
@@ -61,8 +62,16 @@ func (app *Application) RespondToLoanRequest(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	userService := user.Service{
+		Repo: &user.Repository{DB: app.DB},
+	}
+	loanService := loan.Service{
+		Repo: &loan.Repository{DB: app.DB},
+	}
 	loanRequestService := loanrequests.Service{
-		Repo: &loanrequests.Repository{DB: app.DB},
+		Repo:        &loanrequests.Repository{DB: app.DB},
+		UserService: &userService,
+		LoanService: &loanService,
 	}
 
 	var message string

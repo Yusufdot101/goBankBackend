@@ -7,15 +7,24 @@ import (
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 )
 
+type TransferRepo interface {
+	Insert(transfer *Transfer) error
+}
+
+type UserService interface {
+	TransferMoney(fromUser, toUser *user.User, amount float64) (*user.User, error)
+	GetUserByEmail(email string) (*user.User, error)
+}
+
 type Service struct {
-	Repo *Repository
+	Repo        TransferRepo
+	UserService UserService
 }
 
 func (s *Service) TransferMoney(
-	v *validator.Validator, userService *user.Service, fromUser *user.User, toUserEmail string,
-	amount float64,
+	v *validator.Validator, fromUser *user.User, toUserEmail string, amount float64,
 ) (*Transfer, *user.User, error) {
-	toUser, err := userService.GetUserByEmail(toUserEmail)
+	toUser, err := s.UserService.GetUserByEmail(toUserEmail)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -31,7 +40,7 @@ func (s *Service) TransferMoney(
 		return nil, nil, validator.ErrFailedValidation
 	}
 
-	fromUser, err = userService.TransferMoney(fromUser, toUser, transfer.Amount)
+	fromUser, err = s.UserService.TransferMoney(fromUser, toUser, transfer.Amount)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -31,8 +31,8 @@ type password struct {
 	Hash      []byte
 }
 
-func (p *password) Set(plaintext string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), 12)
+func (p *password) Set(plaintext string, cost int) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), cost)
 	if err != nil {
 		return err
 	}

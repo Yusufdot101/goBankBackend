@@ -26,9 +26,9 @@ func (app *Application) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	tokenService := token.Service{Repo: &token.Repository{DB: app.DB}}
 	userService := user.Service{
-		Mailer: mailer.NewMailerFromEnv(),
-		Repo:   &user.Repository{DB: app.DB},
-		Token:  &tokenService,
+		Mailer:       mailer.NewMailerFromEnv(),
+		Repo:         &user.Repository{DB: app.DB},
+		TokenService: &tokenService,
 	}
 
 	v := validator.New()

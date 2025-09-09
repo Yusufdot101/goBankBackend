@@ -29,9 +29,9 @@ type TokenService interface {
 }
 
 type Service struct {
-	Repo   UserRepo
-	Mailer Mailer
-	Token  TokenService
+	Repo         UserRepo
+	Mailer       Mailer
+	TokenService TokenService
 }
 
 func (s *Service) GetUser(userID int64) (*User, error) {
@@ -68,7 +68,7 @@ func (s *Service) Register(
 		Email: email,
 	}
 
-	err := user.Password.Set(passwordPlaintext)
+	err := user.Password.Set(passwordPlaintext, 12)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -83,7 +83,7 @@ func (s *Service) Register(
 	}
 
 	// get the activation token and send it to the user
-	t, err := s.Token.New(user.ID, 3*24*time.Hour, token.ScopeActivation)
+	t, err := s.TokenService.New(user.ID, 3*24*time.Hour, token.ScopeActivation)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -119,7 +119,7 @@ func (s *Service) Activate(tokenPlaintext string) (*User, error) {
 		return u, err
 	}
 
-	err = s.Token.DeleteAllForUser(u.ID, token.ScopeActivation)
+	err = s.TokenService.DeleteAllForUser(u.ID, token.ScopeActivation)
 	if err != nil {
 		return nil, err
 	}

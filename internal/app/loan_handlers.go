@@ -21,8 +21,12 @@ func (app *Application) PayLoan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userService := user.Service{
+		Repo: &user.Repository{DB: app.DB},
+	}
 	loanService := loan.Service{
-		Repo: &loan.Repository{DB: app.DB},
+		Repo:        &loan.Repository{DB: app.DB},
+		UserService: &userService,
 	}
 
 	v := validator.New()

@@ -19,6 +19,7 @@ func ValidateLoanRequest(v *validator.Validator, loanRequest *LoanRequest) {
 	v.CheckAddError(loanRequest.Amount != 0, "amount", "must be given")
 	v.CheckAddError(loanRequest.Amount > 0, "amount", "must be more than 0")
 
+	v.CheckAddError(loanRequest.DailyInterestRate >= 0, "dialy interest rate", "cannot be negative")
 	// v.CheckAddError(loanRequest.DailyInterestRate != 0, "amount", "must be given")
 	// v.CheckAddError(loanRequest.DailyInterestRate >= 0, "amount", "cannot be less than 0")
 }
