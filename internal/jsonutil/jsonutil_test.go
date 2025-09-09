@@ -92,7 +92,7 @@ func TestReadJSON(t *testing.T) {
 		{
 			name:           "multiple JSON values",
 			body:           `{"id": 1, "name": "yusuf"},{"id": 2, "name": "mohamed"}`,
-			expectedErrMsg: "body must contain only one file",
+			expectedErrMsg: "body must contain only one JSON value",
 		},
 	}
 

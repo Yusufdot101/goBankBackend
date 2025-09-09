@@ -63,8 +63,8 @@ func TestCheckAddError(t *testing.T) {
 			name:           "valid condition",
 			setupValidator: func(v *Validator) { v.Errors = map[string]string{} },
 			key:            "result",
-			message:        "1 = 1",
-			condition:      1 == 1,
+			message:        "1 + 1 = 1",
+			condition:      1+1 == 2,
 			length:         0,
 		},
 		{

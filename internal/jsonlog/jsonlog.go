@@ -21,7 +21,7 @@ const (
 )
 
 // String method makes it human readible
-func (level Level) String() string {
+func (level Level) ToString() string {
 	switch level {
 	case LevelInfo:
 		return "INFO"
@@ -81,7 +81,7 @@ func (logger *Logger) print(
 		Trace      string            `json:"trace,omitempty"`
 		Time       string            `json:"time"`
 	}{
-		Level:      level.String(),
+		Level:      level.ToString(),
 		Message:    message,
 		Properties: properties,
 		Time:       time.Now().UTC().Format(time.RFC3339),
@@ -99,7 +99,7 @@ func (logger *Logger) print(
 	line, err := json.Marshal(aux)
 	// incase of error, log the following entry
 	if err != nil {
-		line = []byte(LevelError.String() + ": failed to marshal log entry" + err.Error())
+		line = []byte(LevelError.ToString() + ": failed to marshal log entry" + err.Error())
 	}
 
 	// lock the mutext to prevent concurrent writting, if not done multiple log entries might be

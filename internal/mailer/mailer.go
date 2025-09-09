@@ -16,9 +16,13 @@ import (
 //go:embed "templates"
 var templateFS embed.FS
 
+type Dialer interface {
+	DialAndSend(msg ...*mail.Message) error
+}
+
 // Mailer is a custom struct that holds the dialer, which will send the email, and sender name
 type Mailer struct {
-	dialer *mail.Dialer
+	dialer Dialer
 	sender string
 }
 
@@ -40,8 +44,6 @@ func NewMailerFromEnv() *Mailer {
 		// dev: use MailHog
 		host = "localhost"
 		port = 1025
-		username = ""
-		pass = ""
 	}
 
 	return New(host, port, username, pass, sender)
