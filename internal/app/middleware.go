@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -167,18 +168,25 @@ func (app *Application) requirePermission(next http.HandlerFunc, code ...string)
 		permissionService := permission.Service{
 			Repo: &permission.Repository{DB: app.DB},
 		}
-		userPermissions, err := permissionService.UserAllPermissions(u.ID)
-		if err != nil {
-			app.ServerError(w, r, err)
-			return
+
+		v := validator.New()
+		for _, c := range code {
+			has, err := permissionService.UserHas(v, u, c)
+			if err != nil {
+				switch {
+				case errors.Is(err, validator.ErrFailedValidation):
+					app.FailedValidationResponse(w, v.Errors)
+				default:
+					app.ServerError(w, r, err)
+				}
+				return
+			}
+			if has {
+				next.ServeHTTP(w, r)
+			}
 		}
 
-		if !permission.Includes(userPermissions, code...) {
-			app.RequirePermissionResponse(w)
-			return
-		}
-
-		next.ServeHTTP(w, r)
+		app.RequirePermissionResponse(w)
 	}
 
 	// also needs to be authorized and activated

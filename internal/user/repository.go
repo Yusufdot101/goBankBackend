@@ -19,16 +19,18 @@ type Repository struct {
 
 func (r *Repository) Insert(user *User) error {
 	query := `
-		INSERT INTO users (name, email, password_hash)
-		VALUES ($1, $2, $3)
-		RETURNING id, created_at, account_balance, activated, version
+		INSERT INTO users (name, email, password_hash, account_balance)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at, activated, version
 	`
 
 	// create a 3 sec context so that the request doesnt take too long and hold the resources
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := r.DB.QueryRowContext(ctx, query, user.Name, user.Email, user.Password.Hash).Scan(
+	err := r.DB.QueryRowContext(
+		ctx, query, user.Name, user.Email, user.Password.Hash, user.AccountBalance,
+	).Scan(
 		&user.ID,
 		&user.CreatedAt,
 		&user.AccountBalance,

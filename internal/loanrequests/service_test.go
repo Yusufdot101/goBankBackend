@@ -99,6 +99,17 @@ func TestNew(t *testing.T) {
 			}{v: validator.New(), u: mockUser, amount: 100, dialyInterestRate: 5},
 		},
 		{
+			name:      "amount = 0",
+			setupRepo: func(r *MockRepo) {},
+			input: struct {
+				v                 *validator.Validator
+				u                 *user.User
+				amount            float64
+				dialyInterestRate float64
+			}{v: validator.New(), u: mockUser, amount: 0, dialyInterestRate: 5},
+			expectedErr: validator.ErrFailedValidation,
+		},
+		{
 			name:      "negative amount",
 			setupRepo: func(r *MockRepo) {},
 			input: struct {
@@ -243,7 +254,7 @@ func TestAcceptLoanRequest(t *testing.T) {
 			expectedErr:               user.ErrNoRecord,
 		},
 		{
-			name: "Get failure",
+			name: "Get loan failure",
 			setupRepo: func(r *MockRepo) {
 				r.GetErr = errors.New("db error")
 			},
@@ -256,7 +267,50 @@ func TestAcceptLoanRequest(t *testing.T) {
 			expectedErr: errors.New("db error"),
 		},
 		{
-			name: "UpdateTx failure",
+			name: "Get user failure",
+			setupRepo: func(r *MockRepo) {
+				r.GetResult = mockLoanRequest
+				r.UpdateTxResult = &LoanRequest{
+					ID: mockLoanRequest.ID, UserID: mockLoanRequest.UserID,
+					Amount: mockLoanRequest.Amount, Status: "ACCEPTED",
+					DailyInterestRate: mockLoanRequest.DailyInterestRate,
+				}
+			},
+			setupUserService: func(us *MockUserService) {
+				us.GetUserErr = user.ErrNoRecord
+			},
+			setupLoanService: func(ls *MockLoanService) {},
+			input: struct {
+				loanRequestID int64
+				userID        int64
+			}{loanRequestID: mockLoanRequest.ID, userID: mockUser.ID},
+			expectedErr:               user.ErrNoRecord,
+			loanRequestOriginalStatus: "PENDING",
+		},
+		{
+			name: "update user failure",
+			setupRepo: func(r *MockRepo) {
+				r.GetResult = mockLoanRequest
+				r.UpdateTxResult = &LoanRequest{
+					ID: mockLoanRequest.ID, UserID: mockLoanRequest.UserID,
+					Amount: mockLoanRequest.Amount, Status: "ACCEPTED",
+					DailyInterestRate: mockLoanRequest.DailyInterestRate,
+				}
+			},
+			setupUserService: func(us *MockUserService) {
+				us.GetUserResult = mockUser
+				us.UpdateUserErr = errors.New("db error")
+			},
+			setupLoanService: func(ls *MockLoanService) {},
+			input: struct {
+				loanRequestID int64
+				userID        int64
+			}{loanRequestID: mockLoanRequest.ID, userID: mockUser.ID},
+			expectedErr:               errors.New("db error"),
+			loanRequestOriginalStatus: "PENDING",
+		},
+		{
+			name: "update loan failure",
 			setupRepo: func(r *MockRepo) {
 				r.GetResult = mockLoanRequest
 				r.UpdateTxErr = errors.New("db error")

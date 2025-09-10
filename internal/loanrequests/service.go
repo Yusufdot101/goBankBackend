@@ -70,7 +70,6 @@ func (s *Service) AcceptLoanRequest(loanRequestID, userID int64) (*LoanRequest, 
 	}
 
 	// update the user account, add the loan to the account balance
-
 	u, err := s.UserService.GetUser(userID)
 	if err != nil {
 		return nil, err

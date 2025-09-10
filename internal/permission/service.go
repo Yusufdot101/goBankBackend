@@ -5,11 +5,28 @@ import (
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 )
 
-type Service struct {
-	Repo *Repository
+type Repo interface {
+	AllForUser(userID int64) ([]Permission, error)
+	Grant(userID int64, code ...string) error
+	Revoke(userID int64, code ...string) error
+	Delete(code ...string) error
+	Insert(code Permission) error
 }
 
-func (s *Service) UserHas(u *user.User, code string) (bool, error) {
+type UserService interface {
+	GetUser(userID int64) (*user.User, error)
+}
+
+type Service struct {
+	Repo        Repo
+	UserService UserService
+}
+
+func (s *Service) UserHas(v *validator.Validator, u *user.User, code string) (bool, error) {
+	if ValidateCode(v, code); !v.IsValid() {
+		return false, validator.ErrFailedValidation
+	}
+
 	userPermissions, err := s.Repo.AllForUser(u.ID)
 	if err != nil {
 		return false, err
@@ -32,11 +49,8 @@ func (s *Service) GrantUser(v *validator.Validator, userID int64, code string) e
 		return validator.ErrFailedValidation
 	}
 
-	userService := user.Service{
-		Repo: &user.Repository{DB: s.Repo.DB},
-	}
 	// verify the user exists
-	u, err := userService.GetUser(userID)
+	u, err := s.UserService.GetUser(userID)
 	if err != nil {
 		return err
 	}
@@ -44,12 +58,12 @@ func (s *Service) GrantUser(v *validator.Validator, userID int64, code string) e
 	return s.Repo.Grant(u.ID, code)
 }
 
-func (s *Service) RevokeFromUser(userID int64, code string) error {
-	userService := user.Service{
-		Repo: &user.Repository{DB: s.Repo.DB},
+func (s *Service) RevokeFromUser(v *validator.Validator, userID int64, code string) error {
+	if ValidateCode(v, code); !v.IsValid() {
+		return validator.ErrFailedValidation
 	}
 	// verify the user exists
-	u, err := userService.GetUser(userID)
+	u, err := s.UserService.GetUser(userID)
 	if err != nil {
 		return err
 	}
@@ -57,12 +71,12 @@ func (s *Service) RevokeFromUser(userID int64, code string) error {
 	return s.Repo.Revoke(u.ID, code)
 }
 
-func (s *Service) Delete(code string) error {
+func (s *Service) DeletePermission(code string) error {
 	return s.Repo.Delete(code)
 }
 
 func (s *Service) AddNewPermission(v *validator.Validator, code string) error {
-	if v.CheckAddError(code != "", "code", "must be given"); !v.IsValid() {
+	if ValidateCode(v, code); !v.IsValid() {
 		return validator.ErrFailedValidation
 	}
 

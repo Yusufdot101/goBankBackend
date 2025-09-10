@@ -117,7 +117,12 @@ func (s *Service) MakePayment(
 func (s *Service) DeleteLoan(
 	v *validator.Validator, loanID, debtorID, deletedByID int64, reason string,
 ) (*LoanDeletion, error) {
-	loanDeletion := &LoanDeletion{Reason: reason}
+	loanDeletion := &LoanDeletion{
+		LoanID:      loanID,
+		DebtorID:    debtorID,
+		DeletedByID: deletedByID,
+		Reason:      reason,
+	}
 	if ValidateLoanDeletion(v, loanDeletion); !v.IsValid() {
 		return nil, validator.ErrFailedValidation
 	}

@@ -10,21 +10,17 @@ import (
 // ---MOCKS---
 
 type MockRepo struct {
-	InsertCalled bool
-	InsertErr    error
+	InsertErr error
 }
 
 func (r *MockRepo) Insert(transfer *Transfer) error {
-	r.InsertCalled = true
 	return r.InsertErr
 }
 
 type MockUserService struct {
-	GetUserByEmailCalled bool
 	GetUserByEmailResult *user.User
 	GetUserByEmailErr    error
 
-	TransferMoneyCalled bool
 	TransferMoneyResult *user.User
 	TransferMoneyErr    error
 }

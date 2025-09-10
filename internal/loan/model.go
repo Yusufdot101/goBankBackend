@@ -36,13 +36,21 @@ func ValidateLoan(v *validator.Validator, loan *Loan) {
 	v.CheckAddError(loan.Amount != 0, "amount", "must be given")
 	v.CheckAddError(loan.Amount > 0, "amount", "must be more than 0")
 
-	// v.CheckAddError(loan.DailyInterestRate != 0, "amount", "must be given")
-	// v.CheckAddError(loan.DailyInterestRate >= 0, "amount", "cannot be less than 0")
+	// v.CheckAddError(loan.DailyInterestRate != 0, "daily interest rate", "must be given")
+	v.CheckAddError(loan.DailyInterestRate >= 0, "daily interest rate", "must be more than 0")
 
 	safeActions := []string{"took", "paid"}
-	v.CheckAddError(validator.ValueInList(loan.Action, safeActions...), "action", "invaild")
+	v.CheckAddError(validator.ValueInList(loan.Action, safeActions...), "action", "invalid")
 }
 
 func ValidateLoanDeletion(v *validator.Validator, loanDeletion *LoanDeletion) {
+	v.CheckAddError(loanDeletion.LoanID != 0, "loan ID", "must be given")
+	v.CheckAddError(loanDeletion.DebtorID != 0, "debtor ID", "must be given")
+	v.CheckAddError(loanDeletion.DeletedByID != 0, "deleted by ID", "must be given")
+
+	v.CheckAddError(loanDeletion.LoanID > 0, "loan ID", "must be more than 0")
+	v.CheckAddError(loanDeletion.DebtorID > 0, "debtor ID", "must be more than 0")
+	v.CheckAddError(loanDeletion.DeletedByID > 0, "deleted by ID", "must be more than 0")
+
 	v.CheckAddError(loanDeletion.Reason != "", "reason", "must be given")
 }

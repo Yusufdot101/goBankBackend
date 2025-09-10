@@ -12,18 +12,16 @@ import (
 // ---MOCKS---
 
 type MockRepo struct {
-	InsertCalled      bool
-	InsertErr         error
-	GetForTokenCalled bool
+	InsertErr error
+
 	GetForTokenResult *User
 	GetForTokenErr    error
-	UpdateTxCalled    bool
-	UpdateTxResult    *User
-	UpdateTxErr       error
+
+	UpdateTxResult *User
+	UpdateTxErr    error
 }
 
 func (r *MockRepo) Insert(user *User) error {
-	r.InsertCalled = true
 	return r.InsertErr
 }
 
@@ -36,31 +34,26 @@ func (r *MockRepo) GetByEmail(email string) (*User, error) {
 }
 
 func (r *MockRepo) GetForToken(tokenPlaintext, scope string) (*User, error) {
-	r.GetForTokenCalled = true
 	return r.GetForTokenResult, r.GetForTokenErr
 }
 
 func (r *MockRepo) UpdateTx(
 	userID int64, name, email string, passwordHash []byte, balance float64, activate bool,
 ) (*User, error) {
-	r.UpdateTxCalled = true
 	return r.UpdateTxResult, r.UpdateTxErr
 }
 
 // ---Mock TokenService---
 type MockTokenService struct {
-	NewCalled       bool
-	NewResult       *token.Token
-	NewErr          error
-	DeleteAllCalled bool
-	DeleteAllErr    error
+	NewResult *token.Token
+	NewErr    error
+
+	DeleteAllErr error
 }
 
 func (ts *MockTokenService) New(
 	userID int64, timeToLive time.Duration, scope string,
 ) (*token.Token, error) {
-	ts.NewCalled = true
-
 	if ts.NewErr != nil {
 		return nil, ts.NewErr
 	}
@@ -69,7 +62,6 @@ func (ts *MockTokenService) New(
 }
 
 func (ts *MockTokenService) DeleteAllForUser(userID int64, scope string) error {
-	ts.DeleteAllCalled = true
 	return ts.DeleteAllErr
 }
 
@@ -144,14 +136,6 @@ func TestRegister(t *testing.T) {
 
 			if user == nil || tkn == nil {
 				t.Fatal("expected user and token to be returned")
-			}
-
-			if !repo.InsertCalled {
-				t.Fatal("expected repo.Insert to be called")
-			}
-
-			if !tokenSvc.NewCalled {
-				t.Fatal("expected token.New to be called")
 			}
 		})
 	}

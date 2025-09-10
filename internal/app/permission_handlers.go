@@ -21,8 +21,12 @@ func (app *Application) GrantPermission(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	userService := &user.Service{
+		Repo: &user.Repository{DB: app.DB},
+	}
 	permissionService := permission.Service{
-		Repo: &permission.Repository{DB: app.DB},
+		Repo:        &permission.Repository{DB: app.DB},
+		UserService: userService,
 	}
 
 	v := validator.New()

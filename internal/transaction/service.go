@@ -5,8 +5,21 @@ import (
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 )
 
+type Repo interface {
+	Insert(transaction *Transaction) error
+}
+
+type UserService interface {
+	GetUser(userID int64) (*user.User, error)
+	UpdateUser(
+		userID int64, userName, userEmail string, userPasswordHash []byte,
+		userAccountBalance float64, userActivated bool,
+	) (*user.User, error)
+}
+
 type Service struct {
-	Repo *Repository
+	Repo        Repo
+	UserService UserService
 }
 
 func (s *Service) Deposit(
@@ -22,10 +35,7 @@ func (s *Service) Deposit(
 		return nil, validator.ErrFailedValidation
 	}
 
-	userService := user.Service{
-		Repo: &user.Repository{DB: s.Repo.DB},
-	}
-	u, err := userService.GetUser(userID)
+	u, err := s.UserService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +46,7 @@ func (s *Service) Deposit(
 	}
 
 	u.AccountBalance += transaction.Amount
-	_, err = userService.UpdateUser(
+	_, err = s.UserService.UpdateUser(
 		u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {
@@ -55,21 +65,14 @@ func (s *Service) Withdraw(
 		Action:      "WITHDRAW",
 		PerformedBy: performedBy,
 	}
-	if ValidateTransaction(v, transaction); !v.IsValid() {
-		return nil, validator.ErrFailedValidation
-	}
-
-	userService := user.Service{
-		Repo: &user.Repository{DB: s.Repo.DB},
-	}
-	u, err := userService.GetUser(userID)
+	u, err := s.UserService.GetUser(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	if u.AccountBalance < amount {
-		v.AddError("account balance", "insufficient funds")
-		return nil, nil
+	v.CheckAddError(u.AccountBalance >= amount, "account balance", "insufficient funds")
+	if ValidateTransaction(v, transaction); !v.IsValid() {
+		return nil, validator.ErrFailedValidation
 	}
 
 	err = s.Repo.Insert(transaction)
@@ -78,7 +81,7 @@ func (s *Service) Withdraw(
 	}
 
 	u.AccountBalance -= transaction.Amount
-	_, err = userService.UpdateUser(
+	_, err = s.UserService.UpdateUser(
 		u.ID, u.Name, u.Email, u.Password.Hash, u.AccountBalance, u.Activated,
 	)
 	if err != nil {
