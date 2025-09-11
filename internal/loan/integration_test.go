@@ -209,8 +209,9 @@ func checkErr(t *testing.T, got, expected error, msg string) bool {
 		if got != nil && got.Error() != expected.Error() {
 			t.Fatalf("%s: expected error %v, got %v", msg, expected, got)
 			return false
+		} else if got != nil && got.Error() == expected.Error() {
+			return false
 		}
-		return false
 	} else if got != nil {
 		t.Fatalf("%s: unexpected error %v", msg, got)
 		return false

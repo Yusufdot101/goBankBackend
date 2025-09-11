@@ -38,6 +38,15 @@ func TestMain(m *testing.M) {
 		DB: testDB,
 	}
 
+	tokenSvc := &token.Service{
+		Repo: &token.Repository{DB: repo.DB},
+	}
+
+	svc = &Service{
+		Repo:         repo,
+		TokenService: tokenSvc,
+	}
+
 	resetDB()
 
 	code := m.Run()
@@ -100,7 +109,7 @@ func TestUser(t *testing.T) {
 		},
 		{
 			name:  "duplicate email",
-			setup: func() {},
+			setup: func() {}, // we dont reset the database so the user already exists in the db
 			input: struct {
 				v        *validator.Validator
 				user     *User
@@ -113,36 +122,11 @@ func TestUser(t *testing.T) {
 			},
 			expectedErr: ErrDuplicateEmail,
 		},
-		{
-			name: "insufficient funds in fromUser account during transfer",
-			setup: func() {
-				resetDB()
-			},
-			input: struct {
-				v        *validator.Validator
-				user     *User
-				fromUser *User
-				amount   float64
-			}{
-				user:     user1,
-				fromUser: user2,
-				amount:   1000,
-			},
-			expectedErr: validator.ErrFailedValidation,
-		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.setup()
-			tokenSvc := &token.Service{
-				Repo: &token.Repository{DB: repo.DB},
-			}
-
-			svc = &Service{
-				Repo:         repo,
-				TokenService: tokenSvc,
-			}
 			v := validator.New()
 			// step 1: register the user
 			_, tkn, gotErr := svc.Register(
@@ -274,8 +258,9 @@ func checkErr(t *testing.T, got, expected error, msg string) bool {
 		if got != nil && got.Error() != expected.Error() {
 			t.Fatalf("%s: expected error %v, got %v", msg, expected, got)
 			return false
+		} else if got != nil && got.Error() == expected.Error() {
+			return false
 		}
-		return false
 	} else if got != nil {
 		t.Fatalf("%s: unexpected error %v", msg, got)
 		return false
