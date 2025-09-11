@@ -33,7 +33,7 @@ func (r *Repository) Insert(user *User) error {
 	).Scan(
 		&user.ID,
 		&user.CreatedAt,
-		&user.AccountBalance,
+		// &user.AccountBalance,
 		&user.Activated,
 		&user.Version,
 	)
