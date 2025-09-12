@@ -1,70 +1,32 @@
-package loanrequests
+package tests
 
 import (
-	"context"
-	"database/sql"
-	"log"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/Yusufdot101/goBankBackend/internal/loan"
+	"github.com/Yusufdot101/goBankBackend/internal/loanrequests"
 	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 	_ "github.com/lib/pq"
 )
 
-var (
-	testDB  *sql.DB
-	repo    *Repository
-	userSvc *user.Service
-	loanSvc *loan.Service
-	svc     *Service
-	u       *user.User
-)
-
-func TestMain(m *testing.M) {
-	dsn := os.Getenv("GOBANK_TEST_DB")
-	if dsn == "" {
-		log.Fatal("GOBANK_TEST_DB not set")
-	}
-	var err error
-	testDB, err = sql.Open("postgres", dsn)
-	if err != nil {
-		log.Fatalf("failed to connect to test DB: %v", err)
-	}
-
-	repo = &Repository{
+func TestLoanRequest(t *testing.T) {
+	loanrequestRepo = &loanrequests.Repository{
 		DB: testDB,
 	}
-	userSvc = &user.Service{
-		Repo: &user.Repository{DB: repo.DB},
-	}
 	loanSvc = &loan.Service{
-		Repo:        &loan.Repository{DB: repo.DB},
-		UserService: userSvc,
+		Repo: &loan.Repository{DB: loanrequestRepo.DB},
 	}
-	svc = &Service{
-		Repo:        repo,
+	userSvc = &user.Service{
+		Repo: &user.Repository{DB: loanrequestRepo.DB},
+	}
+	loanrequestSvc = &loanrequests.Service{
+		Repo:        loanrequestRepo,
 		LoanService: loanSvc,
 		UserService: userSvc,
 	}
 
-	resetDB()
-
-	code := m.Run()
-	resetDB()
-	os.Exit(code)
-}
-
-func resetDB() {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	testDB.ExecContext(ctx, `TRUNCATE loan_requests, loans, users RESTART IDENTITY CASCADE`)
-}
-
-func TestLoanRequest(t *testing.T) {
-	u = &user.User{
+	user1 = &user.User{
 		ID:    1,
 		Name:  "yusuf",
 		Email: "y@gmail.com",
@@ -72,7 +34,7 @@ func TestLoanRequest(t *testing.T) {
 
 	seedUsersTable := func(us *user.Service) {
 		// seed the users table, this will be used in transferring of money
-		us.Repo.Insert(u)
+		us.Repo.Insert(user1)
 	}
 
 	tests := []struct {
@@ -98,7 +60,7 @@ func TestLoanRequest(t *testing.T) {
 				amount            float64
 				dailyInterestRate float64
 			}{
-				u:                 u,
+				u:                 user1,
 				amount:            100,
 				dailyInterestRate: 5,
 			},
@@ -116,7 +78,7 @@ func TestLoanRequest(t *testing.T) {
 				amount            float64
 				dailyInterestRate float64
 			}{
-				u:                 u,
+				u:                 user1,
 				amount:            0,
 				dailyInterestRate: 5,
 			},
@@ -135,7 +97,7 @@ func TestLoanRequest(t *testing.T) {
 				amount            float64
 				dailyInterestRate float64
 			}{
-				u:                 u,
+				u:                 user1,
 				amount:            -100,
 				dailyInterestRate: 5,
 			},
@@ -149,7 +111,7 @@ func TestLoanRequest(t *testing.T) {
 			tc.setupUserSevice(userSvc)
 			v := validator.New()
 			// step 1: loan creation
-			loanRequest, gotErr := svc.New(
+			loanRequest, gotErr := loanrequestSvc.New(
 				v, tc.input.u, tc.input.amount, tc.input.dailyInterestRate,
 			)
 			if !checkErr(t, gotErr, tc.expectedErr, "New") {
@@ -157,7 +119,7 @@ func TestLoanRequest(t *testing.T) {
 			}
 
 			// fetch the loan
-			loanRequest, gotErr = svc.Repo.Get(loanRequest.ID, tc.input.u.ID)
+			loanRequest, gotErr = loanrequestSvc.Repo.Get(loanRequest.ID, tc.input.u.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "New") {
 				return
 			}
@@ -170,13 +132,13 @@ func TestLoanRequest(t *testing.T) {
 			}
 
 			// step 2: accept the loan
-			loanRequest, gotErr = svc.AcceptLoanRequest(loanRequest.ID, tc.input.u.ID)
+			loanRequest, gotErr = loanrequestSvc.AcceptLoanRequest(loanRequest.ID, tc.input.u.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "New") {
 				return
 			}
 
 			// fetch the loan
-			loanRequest, gotErr = svc.Repo.Get(loanRequest.ID, tc.input.u.ID)
+			loanRequest, gotErr = loanrequestSvc.Repo.Get(loanRequest.ID, tc.input.u.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "New") {
 				return
 			}
@@ -213,7 +175,7 @@ func TestLoanRequest(t *testing.T) {
 			}
 
 			// step 3: new loan request
-			loanRequest, gotErr = svc.New(
+			loanRequest, gotErr = loanrequestSvc.New(
 				v, tc.input.u, tc.input.amount, tc.input.dailyInterestRate,
 			)
 			if !checkErr(t, gotErr, tc.expectedErr, "New") {
@@ -221,13 +183,13 @@ func TestLoanRequest(t *testing.T) {
 			}
 
 			// decline it
-			loanRequest, gotErr = svc.DeclineLoanRequest(loanRequest.ID, tc.input.u.ID)
+			loanRequest, gotErr = loanrequestSvc.DeclineLoanRequest(loanRequest.ID, tc.input.u.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "New") {
 				return
 			}
 
 			// fetch it
-			loanRequest, gotErr = svc.Repo.Get(loanRequest.ID, tc.input.u.ID)
+			loanRequest, gotErr = loanrequestSvc.Repo.Get(loanRequest.ID, tc.input.u.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "New") {
 				return
 			}
@@ -298,7 +260,7 @@ func checkLoan(
 }
 
 func checkLoanRequest(
-	t *testing.T, gotLoanRequest *LoanRequest, userID int64, amount, dailyInterestRate float64,
+	t *testing.T, gotLoanRequest *loanrequests.LoanRequest, userID int64, amount, dailyInterestRate float64,
 	status, msg string,
 ) bool {
 	passed := true
@@ -327,19 +289,4 @@ func checkLoanRequest(
 		passed = false
 	}
 	return passed
-}
-
-func checkErr(t *testing.T, got, expected error, msg string) bool {
-	if expected != nil {
-		if got != nil && got.Error() != expected.Error() {
-			t.Fatalf("%s: expected error %v, got %v", msg, expected, got)
-			return false
-		} else if got != nil && got.Error() == expected.Error() {
-			return false
-		}
-	} else if got != nil {
-		t.Fatalf("%s: unexpected error %v", msg, got)
-		return false
-	}
-	return true
 }

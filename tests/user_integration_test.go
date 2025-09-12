@@ -1,74 +1,37 @@
-package user
+package tests
 
 import (
-	"context"
-	"database/sql"
-	"log"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/Yusufdot101/goBankBackend/internal/token"
+	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 
 	_ "github.com/lib/pq"
 )
 
-var (
-	testDB *sql.DB
-	repo   *Repository
-	svc    *Service
-	user1  *User
-	user2  *User
-)
-
-func TestMain(m *testing.M) {
-	dsn := os.Getenv("GOBANK_TEST_DB")
-	if dsn == "" {
-		log.Fatal("GOBANK_TEST_DB not set")
-	}
-
-	var err error
-	testDB, err = sql.Open("postgres", dsn)
-	if err != nil {
-		log.Fatalf("failed to connect to test DB: %v", err)
-	}
-
-	repo = &Repository{
+func TestUser(t *testing.T) {
+	userRepo = &user.Repository{
 		DB: testDB,
 	}
+	tokenRepo = &token.Repository{DB: userRepo.DB}
 
-	tokenSvc := &token.Service{
-		Repo: &token.Repository{DB: repo.DB},
+	tokenSvc = &token.Service{
+		Repo: tokenRepo,
 	}
-
-	svc = &Service{
-		Repo:         repo,
+	userSvc = &user.Service{
+		Repo:         userRepo,
 		TokenService: tokenSvc,
 	}
 
-	resetDB()
-
-	code := m.Run()
-	resetDB()
-	os.Exit(code)
-}
-
-func resetDB() {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	testDB.ExecContext(ctx, `TRUNCATE tokens, users RESTART IDENTITY CASCADE`)
-}
-
-func TestUser(t *testing.T) {
-	user1 = &User{
+	user1 = &user.User{
 		ID:    1,
 		Name:  "yusuf",
 		Email: "y@gmail.com",
 	}
 	user1.Password.Set("12345678", 12)
 
-	user2 = &User{
+	user2 = &user.User{
 		ID:             2,
 		Name:           "mohamed",
 		Email:          "m@gmail.com",
@@ -76,7 +39,7 @@ func TestUser(t *testing.T) {
 	}
 	user2.Password.Set("12345678", 12)
 
-	setupUserSevice := func(us *Service, user *User) {
+	setupUserSevice := func(us *user.Service, user *user.User) {
 		// seed the users table, this will be used in transferring of money
 		us.Repo.Insert(user)
 	}
@@ -86,7 +49,8 @@ func TestUser(t *testing.T) {
 		setup func()
 		input struct {
 			v              *validator.Validator
-			user, fromUser *User
+			user, fromUser *user.User
+			userPassword   string
 			amount         float64
 		}
 		expectedErr error
@@ -97,30 +61,34 @@ func TestUser(t *testing.T) {
 				resetDB() // clean the database and start on clean slate
 			},
 			input: struct {
-				v        *validator.Validator
-				user     *User
-				fromUser *User
-				amount   float64
+				v            *validator.Validator
+				user         *user.User
+				fromUser     *user.User
+				userPassword string
+				amount       float64
 			}{
-				user:     user1,
-				fromUser: user2,
-				amount:   100,
+				user:         user1,
+				userPassword: "12345678",
+				fromUser:     user2,
+				amount:       100,
 			},
 		},
 		{
 			name:  "duplicate email",
 			setup: func() {}, // we dont reset the database so the user already exists in the db
 			input: struct {
-				v        *validator.Validator
-				user     *User
-				fromUser *User
-				amount   float64
+				v            *validator.Validator
+				user         *user.User
+				fromUser     *user.User
+				userPassword string
+				amount       float64
 			}{
-				user:     user1,
-				fromUser: user2,
-				amount:   100,
+				user:         user1,
+				fromUser:     user2,
+				userPassword: "12345678",
+				amount:       100,
 			},
-			expectedErr: ErrDuplicateEmail,
+			expectedErr: user.ErrDuplicateEmail,
 		},
 	}
 
@@ -129,15 +97,15 @@ func TestUser(t *testing.T) {
 			tc.setup()
 			v := validator.New()
 			// step 1: register the user
-			_, tkn, gotErr := svc.Register(
-				v, tc.input.user.Name, tc.input.user.Email, *tc.input.user.Password.plaintext,
+			_, tkn, gotErr := userSvc.Register(
+				v, tc.input.user.Name, tc.input.user.Email, tc.input.userPassword,
 			)
 			if !checkErr(t, gotErr, tc.expectedErr, "Register") {
 				return
 			}
 
 			// fetch and check the user
-			gotUser, gotErr := svc.GetUser(tc.input.user.ID)
+			gotUser, gotErr := userSvc.GetUser(tc.input.user.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "GetUser") {
 				return
 			}
@@ -146,7 +114,7 @@ func TestUser(t *testing.T) {
 			}
 
 			// fetch the user by email and check
-			gotUser, gotErr = svc.GetUserByEmail(tc.input.user.Email)
+			gotUser, gotErr = userSvc.GetUserByEmail(tc.input.user.Email)
 			if !checkErr(t, gotErr, tc.expectedErr, "GetUser") {
 				return
 			}
@@ -155,13 +123,13 @@ func TestUser(t *testing.T) {
 			}
 
 			// step 2: activate the account
-			_, gotErr = svc.Activate(tkn.Plaintext)
+			_, gotErr = userSvc.Activate(tkn.Plaintext)
 			if !checkErr(t, gotErr, tc.expectedErr, "Activate") {
 				return
 			}
 
 			// fetch and check the user
-			gotUser, gotErr = svc.GetUser(tc.input.user.ID)
+			gotUser, gotErr = userSvc.GetUser(tc.input.user.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "GetUser 2") {
 				return
 			}
@@ -171,8 +139,8 @@ func TestUser(t *testing.T) {
 
 			// step 3: transfer money into the user account
 			// add new account to transfer from
-			setupUserSevice(svc, user2)
-			gotUser, gotErr = svc.TransferMoney(tc.input.fromUser, tc.input.user, tc.input.amount)
+			setupUserSevice(userSvc, user2)
+			gotUser, gotErr = userSvc.TransferMoney(tc.input.fromUser, tc.input.user, tc.input.amount)
 			if !checkErr(t, gotErr, tc.expectedErr, "TransferMoney") {
 				return
 			}
@@ -181,7 +149,7 @@ func TestUser(t *testing.T) {
 			}
 
 			// fetch and check the user
-			gotUser, gotErr = svc.GetUser(tc.input.user.ID)
+			gotUser, gotErr = userSvc.GetUser(tc.input.user.ID)
 			if !checkErr(t, gotErr, tc.expectedErr, "GetUser 3") {
 				return
 			}
@@ -199,7 +167,7 @@ func TestUser(t *testing.T) {
 	}
 }
 
-func checkUser(t *testing.T, got, expected *User, msg string) bool {
+func checkUser(t *testing.T, got, expected *user.User, msg string) bool {
 	passed := true
 	if got.ID != expected.ID {
 		t.Errorf("%s: expected user id=%d, got id=%d", msg, expected.ID, got.ID)
@@ -217,7 +185,7 @@ func checkUser(t *testing.T, got, expected *User, msg string) bool {
 	return passed
 }
 
-func checkActivatedUser(t *testing.T, got, expected *User, msg string) bool {
+func checkActivatedUser(t *testing.T, got, expected *user.User, msg string) bool {
 	passed := checkUser(t, got, expected, msg)
 	if !got.Activated {
 		t.Errorf("%s: expected user account to be activated", msg)
@@ -227,7 +195,7 @@ func checkActivatedUser(t *testing.T, got, expected *User, msg string) bool {
 }
 
 func checkFromUserAfterTransfer(
-	t *testing.T, got, expected *User, msg string,
+	t *testing.T, got, expected *user.User, msg string,
 ) bool {
 	passed := checkUser(t, got, expected, msg)
 	if got.AccountBalance != 0 {
@@ -240,7 +208,7 @@ func checkFromUserAfterTransfer(
 }
 
 func checkToUserAfterTransfer(
-	t *testing.T, got, expected *User, amount float64, msg string,
+	t *testing.T, got, expected *user.User, amount float64, msg string,
 ) bool {
 	passed := checkUser(t, got, expected, msg)
 	if got.AccountBalance != amount {
@@ -251,19 +219,4 @@ func checkToUserAfterTransfer(
 		passed = false
 	}
 	return passed
-}
-
-func checkErr(t *testing.T, got, expected error, msg string) bool {
-	if expected != nil {
-		if got != nil && got.Error() != expected.Error() {
-			t.Fatalf("%s: expected error %v, got %v", msg, expected, got)
-			return false
-		} else if got != nil && got.Error() == expected.Error() {
-			return false
-		}
-	} else if got != nil {
-		t.Fatalf("%s: unexpected error %v", msg, got)
-		return false
-	}
-	return true
 }

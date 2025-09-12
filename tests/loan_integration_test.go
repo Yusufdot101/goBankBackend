@@ -1,58 +1,21 @@
-package loan
+package tests
 
 import (
-	"context"
-	"database/sql"
-	"log"
-	"os"
 	"testing"
-	"time"
 
+	"github.com/Yusufdot101/goBankBackend/internal/loan"
 	"github.com/Yusufdot101/goBankBackend/internal/user"
 	"github.com/Yusufdot101/goBankBackend/internal/validator"
 	_ "github.com/lib/pq"
 )
 
-var (
-	testDB *sql.DB
-	repo   *Repository
-	svc    *Service
-	user1  *user.User
-	user2  *user.User
-)
-
-func TestMain(m *testing.M) {
-	dsn := os.Getenv("GOBANK_TEST_DB")
-	if dsn == "" {
-		log.Fatal("GOBANK_TEST_DB not set")
-	}
-
-	var err error
-	testDB, err = sql.Open("postgres", dsn)
-	if err != nil {
-		log.Fatalf("failed to connect to test DB: %v", err)
-	}
-
-	repo = &Repository{
-		DB: testDB,
-	}
-
-	resetDB()
-
-	code := m.Run()
-	resetDB()
-	os.Exit(code)
-}
-
-func resetDB() {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	testDB.ExecContext(ctx, `TRUNCATE loans, deleted_loans, users RESTART IDENTITY CASCADE`)
-}
-
 // actual integration tests
 
 func TestLoanLifecycle(t *testing.T) {
+	loanRepo = &loan.Repository{
+		DB: testDB,
+	}
+
 	user1 = &user.User{
 		ID:             1,
 		Name:           "yusuf",
@@ -134,24 +97,24 @@ func TestLoanLifecycle(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			resetDB() // clean the database and start on clean slate
-			userSvc := &user.Service{
-				Repo: &user.Repository{DB: repo.DB},
+			userSvc = &user.Service{
+				Repo: &user.Repository{DB: loanRepo.DB},
 			}
 			setupUserSevice(userSvc)
 
-			svc = &Service{
-				Repo:        repo,
+			loanSvc = &loan.Service{
+				Repo:        loanRepo,
 				UserService: userSvc,
 			}
 			v := validator.New()
 			// step 1: create loan
-			gotErr := svc.GetLoan(tc.input.user, tc.input.amount, tc.input.dailyInterestRate)
+			gotErr := loanSvc.GetLoan(tc.input.user, tc.input.amount, tc.input.dailyInterestRate)
 			if !checkErr(t, gotErr, tc.expectedErr, "GetLoan") {
 				return
 			}
 
 			// fetch the loan from the DB
-			dbLoan, gotErr := repo.GetByID(tc.input.loanID, tc.input.userID)
+			dbLoan, gotErr := loanRepo.GetByID(tc.input.loanID, tc.input.userID)
 			if !checkErr(t, gotErr, tc.expectedErr, "GetByID") {
 				return
 			}
@@ -163,13 +126,13 @@ func TestLoanLifecycle(t *testing.T) {
 			}
 
 			// step 2: make payment
-			_, gotErr = svc.MakePayment(v, tc.input.loanID, tc.input.userID, tc.input.payment)
+			_, gotErr = loanSvc.MakePayment(v, tc.input.loanID, tc.input.userID, tc.input.payment)
 			if !checkErr(t, gotErr, tc.expectedErr, "MakePayment") {
 				return
 			}
 
 			// fetch again to check
-			dbLoan, gotErr = repo.GetByID(tc.input.loanID, tc.input.userID)
+			dbLoan, gotErr = loanRepo.GetByID(tc.input.loanID, tc.input.userID)
 			if !checkErr(t, gotErr, tc.expectedErr, "GetByID 2") {
 				return
 			}
@@ -179,7 +142,7 @@ func TestLoanLifecycle(t *testing.T) {
 			}
 
 			// step 3: delete loan
-			loanDeletion, gotErr := svc.DeleteLoan(
+			loanDeletion, gotErr := loanSvc.DeleteLoan(
 				v, tc.input.loanID, tc.input.userID, tc.input.deletedByID, tc.input.reason,
 			)
 			if !checkErr(t, gotErr, tc.expectedErr, "DeleteLoan") {
@@ -191,7 +154,7 @@ func TestLoanLifecycle(t *testing.T) {
 			}
 
 			// verify loan is gone
-			_, gotErr = repo.GetByID(dbLoan.ID, tc.input.userID)
+			_, gotErr = loanRepo.GetByID(dbLoan.ID, tc.input.userID)
 			if gotErr == nil {
 				t.Errorf("expected error fetching deleted loan, got nil")
 			}
@@ -202,19 +165,4 @@ func TestLoanLifecycle(t *testing.T) {
 			}
 		})
 	}
-}
-
-func checkErr(t *testing.T, got, expected error, msg string) bool {
-	if expected != nil {
-		if got != nil && got.Error() != expected.Error() {
-			t.Fatalf("%s: expected error %v, got %v", msg, expected, got)
-			return false
-		} else if got != nil && got.Error() == expected.Error() {
-			return false
-		}
-	} else if got != nil {
-		t.Fatalf("%s: unexpected error %v", msg, got)
-		return false
-	}
-	return true
 }
