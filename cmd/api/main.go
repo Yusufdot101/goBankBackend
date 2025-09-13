@@ -44,6 +44,10 @@ func main() {
 
 	displayVersion := flag.Bool("version", false, "Display application version and exit")
 	flag.Parse()
+
+	if config.DB.DSN == "" {
+		config.DB.DSN = os.Getenv("DB_DSN")
+	}
 	if *displayVersion {
 		fmt.Printf("Version:\t%s\n", version)
 		fmt.Printf("Build time:\t%s\n", buildTime)
